@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avatar Display Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .avatar-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .avatar-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 10px;
+            border: 3px solid #ddd;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        h1 { color: #333; text-align: center; }
+        .summary {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Avatar Image Display Test</h1>
+    <div class="summary">
+        <p>Testing all 12 avatar PNG images from your Next.js application...</p>
+        <div id="summary-stats"></div>
+    </div>
+    
+    <div class="avatar-grid" id="avatar-grid">
+        <!-- Avatars will be loaded here -->
+    </div>
+
+    <script>
+        const AVATAR_CONFIG = {
+            'computer-teacher': { name: 'Computer Teacher', emoji: '💻' },
+            'english-teacher': { name: 'English Teacher', emoji: '📚' },
+            'biology-teacher': { name: 'Biology Teacher', emoji: '🧬' },
+            'physics-teacher': { name: 'Physics Teacher', emoji: '⚡' },
+            'chemistry-teacher': { name: 'Chemistry Teacher', emoji: '🧪' },
+            'history-teacher': { name: 'History Teacher', emoji: '📜' },
+            'geography-teacher': { name: 'Geography Teacher', emoji: '🌍' },
+            'hindi-teacher': { name: 'Hindi Teacher', emoji: '🇮🇳' },
+            'mathematics-teacher': { name: 'Mathematics Teacher', emoji: '📐' },
+            'doctor': { name: 'AI Doctor', emoji: '👨‍⚕️' },
+            'engineer': { name: 'AI Engineer', emoji: '👨‍💼' },
+            'lawyer': { name: 'AI Lawyer', emoji: '⚖️' }
+        };
+
+        let loadedCount = 0;
+        let errorCount = 0;
+        const totalCount = Object.keys(AVATAR_CONFIG).length;
+
+        function updateSummary() {
+            const summaryEl = document.getElementById('summary-stats');
+            summaryEl.innerHTML = `
+                <strong>Results: ${loadedCount}/${totalCount} images loaded successfully</strong><br>
+                <span style="color: green;">✅ Loaded: ${loadedCount}</span> | 
+                <span style="color: red;">❌ Failed: ${errorCount}</span>
+            `;
+        }
+
+        function createAvatarCard(key, config) {
+            const card = document.createElement('div');
+            card.className = 'avatar-card';
+            
+            const imagePath = `http://localhost:3000/assets/avatars/${key}.png`;
+            
+            const img = document.createElement('img');
+            img.src = imagePath;
+            img.alt = config.name;
+            img.className = 'avatar-image';
+            
+            const name = document.createElement('h3');
+            name.textContent = config.name;
+            name.style.margin = '10px 0 5px 0';
+            
+            const emoji = document.createElement('div');
+            emoji.textContent = config.emoji;
+            emoji.style.fontSize = '24px';
+            emoji.style.margin = '5px 0';
+            
+            const status = document.createElement('div');
+            status.className = 'status';
+            status.textContent = 'Loading...';
+            
+            img.onload = function() {
+                status.textContent = '✅ Image Loaded';
+                status.className = 'status success';
+                loadedCount++;
+                updateSummary();
+            };
+            
+            img.onerror = function() {
+                status.textContent = '❌ Failed to Load';
+                status.className = 'status error';
+                img.style.display = 'none';
+                
+                // Show emoji as fallback
+                const fallback = document.createElement('div');
+                fallback.style.fontSize = '60px';
+                fallback.style.margin = '10px auto';
+                fallback.textContent = config.emoji;
+                card.insertBefore(fallback, name);
+                
+                errorCount++;
+                updateSummary();
+            };
+            
+            card.appendChild(img);
+            card.appendChild(name);
+            card.appendChild(emoji);
+            card.appendChild(status);
+            
+            return card;
+        }
+
+        // Load all avatars
+        const grid = document.getElementById('avatar-grid');
+        Object.entries(AVATAR_CONFIG).forEach(([key, config]) => {
+            const card = createAvatarCard(key, config);
+            grid.appendChild(card);
+        });
+
+        // Initial summary
+        updateSummary();
+
+        // Final check after 5 seconds
+        setTimeout(() => {
+            if (loadedCount === totalCount) {
+                document.querySelector('.summary').innerHTML += 
+                    '<div style="color: green; font-weight: bold; margin-top: 15px;">🎉 ALL AVATAR IMAGES ARE DISPLAYING PERFECTLY!</div>';
+            } else {
+                document.querySelector('.summary').innerHTML += 
+                    '<div style="color: orange; font-weight: bold; margin-top: 15px;">⚠️ Some images may need attention.</div>';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
