@@ -3,7 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
-    optimizeCss: true,
+    // Disabled CSS optimization to fix critters error
+    // optimizeCss: true,
   },
   images: {
     unoptimized: true,
