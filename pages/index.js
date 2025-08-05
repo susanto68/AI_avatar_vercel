@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
-import Image from 'next/image'
 
 // Avatar Configuration
 const AVATAR_CONFIG = {
@@ -420,19 +419,16 @@ export default function Home() {
                 }}
               >
                 <div className="avatar-image-container">
-                  <div className="relative w-24 h-24">
-                    <Image
-                      src={config.image}
-                      alt={config.name}
-                      fill
-                      className="rounded-full object-cover"
-                      onError={() => {
-                        // Handle error by showing emoji fallback
-                        console.log(`Failed to load image: ${config.image}`)
-                      }}
-                    />
-                  </div>
-                  <div className="text-4xl hidden">{config.emoji}</div>
+                  <img
+                    src={config.image}
+                    alt={config.name}
+                    className="w-24 h-24 rounded-full object-cover mx-auto"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'block';
+                    }}
+                  />
+                  <div className="text-4xl" style={{display: 'none'}}>{config.emoji}</div>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{config.name}</h3>
                 <p className="text-white/80 text-sm">{config.domain}</p>
@@ -485,18 +481,16 @@ export default function Home() {
             {/* Selected Avatar Display */}
             <div className="text-center mb-8">
               <div className="avatar-image-container mx-auto mb-4">
-                <div className="relative w-32 h-32">
-                  <Image
-                    src={selectedAvatar.config.image}
-                    alt={selectedAvatar.config.name}
-                    fill
-                    className={`rounded-full object-cover ${isSpeaking ? 'speaking' : ''}`}
-                    onError={() => {
-                      console.log(`Failed to load image: ${selectedAvatar.config.image}`)
-                    }}
-                  />
-                </div>
-                <div className={`text-6xl hidden ${isSpeaking ? 'animate-pulse' : ''}`}>
+                <img
+                  src={selectedAvatar.config.image}
+                  alt={selectedAvatar.config.name}
+                  className={`w-32 h-32 rounded-full object-cover mx-auto ${isSpeaking ? 'speaking' : ''}`}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'block';
+                  }}
+                />
+                <div className={`text-6xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
                   {selectedAvatar.config.emoji}
                 </div>
               </div>

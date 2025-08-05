@@ -209,14 +209,14 @@
 
 /* Avatar image container */
 .avatar-image-container {
-  @apply relative w-24 h-24 mx-auto mb-4;
-  @apply rounded-full overflow-hidden;
-  @apply border-4 border-white/30;
-  @apply shadow-lg;
+  @apply mx-auto mb-4;
+  @apply rounded-full;
+  @apply transition-transform duration-300;
 }
 
 .avatar-image-container img {
-  @apply w-full h-full object-cover;
+  @apply border-4 border-white/30;
+  @apply shadow-lg;
   @apply transition-transform duration-300;
 }
 
