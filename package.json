@@ -2,13 +2,12 @@
   "name": "ai-avatar-assistant",
   "version": "2.0.0",
   "description": "Colorful AI Avatar Assistant created by Susanto Ganguly (Sir Ganguly) with voice interaction and multiple subject teachers",
-  "type": "module",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'No build step required'",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "keywords": [
     "ai",
@@ -20,19 +19,34 @@
     "education",
     "gemini-ai",
     "sir-ganguly",
-    "susanto-ganguly"
+    "susanto-ganguly",
+    "nextjs",
+    "react",
+    "tailwindcss",
+    "vercel"
   ],
   "author": "Susanto Ganguly",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "openai": "^4.20.1"
+    "critters": "^0.0.25",
+    "next": "^14.0.0",
+    "openai": "^4.20.1",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "autoprefixer": "^10.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0",
+    "postcss": "^8.0.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.0.0"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=18.17.0",
     "npm": ">=8.0.0"
   },
   "repository": {
@@ -43,4 +57,4 @@
   "bugs": {
     "url": "https://github.com/susanto68/AI-Avatar/issues"
   }
-} 
+}
