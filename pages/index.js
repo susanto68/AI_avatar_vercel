@@ -111,13 +111,40 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [notification, setNotification] = useState(null)
   const [speechSupported, setSpeechSupported] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   
   const recognitionRef = useRef(null)
   const utteranceRef = useRef(null)
   
+  // Haptic feedback function
+  const hapticFeedback = (type = 'light') => {
+    if (isMobile && 'vibrate' in navigator) {
+      switch (type) {
+        case 'light':
+          navigator.vibrate(25)
+          break
+        case 'medium':
+          navigator.vibrate(50)
+          break
+        case 'heavy':
+          navigator.vibrate([100, 50, 100])
+          break
+        case 'success':
+          navigator.vibrate([50, 50, 50])
+          break
+        default:
+          navigator.vibrate(25)
+      }
+    }
+  }
+  
   useEffect(() => {
     // Initialize app
     const initApp = () => {
+      // Detect mobile device
+      const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setIsMobile(mobileCheck)
+      
       // Check speech synthesis support
       const speechSupport = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
       setSpeechSupported(speechSupport)
@@ -126,6 +153,14 @@ export default function Home() {
       const savedTheme = localStorage.getItem('theme') || 'light'
       setIsDarkMode(savedTheme === 'dark')
       document.documentElement.classList.toggle('dark', savedTheme === 'dark')
+      
+      // Add mobile-specific viewport meta tag adjustments
+      if (mobileCheck) {
+        const viewport = document.querySelector('meta[name=viewport]')
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
+        }
+      }
       
       // Initialize speech recognition
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -191,6 +226,8 @@ export default function Home() {
   }
   
   const selectAvatar = (avatarType) => {
+    hapticFeedback('medium') // Haptic feedback for avatar selection
+    
     const config = AVATAR_CONFIG[avatarType]
     setSelectedAvatar({ type: avatarType, config })
     setCurrentView('chat')
@@ -318,6 +355,8 @@ export default function Home() {
   const startListening = () => {
     if (!recognitionRef.current || isListening) return
     
+    hapticFeedback('light') // Haptic feedback for starting voice recognition
+    
     // Update recognition language based on avatar
     if (selectedAvatar?.type === 'hindi-teacher') {
       recognitionRef.current.lang = 'hi-IN'
@@ -341,6 +380,8 @@ export default function Home() {
   }
   
   const copyToClipboard = (text) => {
+    hapticFeedback('success') // Haptic feedback for copy action
+    
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
         showNotification('Copied to clipboard!', 'success')
@@ -351,6 +392,8 @@ export default function Home() {
   }
   
   const goBack = () => {
+    hapticFeedback('light') // Haptic feedback for navigation
+    
     setCurrentView('selection')
     setSelectedAvatar(null)
     setMessages([])
@@ -362,11 +405,20 @@ export default function Home() {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="loading-spinner mx-auto mb-4"></div>
-          <p className="text-xl mb-2">Loading AI Avatar Assistant...</p>
-          <p className="text-sm opacity-70">Created by Susanto Ganguly (Sir Ganguly)</p>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center text-white animate-fade-in">
+          <div className="loading-spinner mx-auto mb-6 animate-bounce-in"></div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 animate-slide-up">
+            Loading AI Avatar Assistant...
+          </h1>
+          <p className="text-sm sm:text-base opacity-70 animate-slide-up" style={{animationDelay: '0.2s'}}>
+            Created by <strong>Susanto Ganguly</strong> (Sir Ganguly)
+          </p>
+          <div className="mt-6 flex justify-center space-x-1 animate-slide-up" style={{animationDelay: '0.4s'}}>
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+            <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+          </div>
         </div>
       </div>
     )
@@ -390,86 +442,104 @@ export default function Home() {
 
       {/* Avatar Selection View */}
       {currentView === 'selection' && (
-        <div className="mobile-padding py-8 max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 fade-in">
-              🎭 Choose Your AI Avatar
-            </h1>
-            <p className="text-xl text-white/90 mb-2 fade-in">
-              Select an avatar to start your conversation
-            </p>
-            <p className="text-white/70 fade-in">
-              Designed by <strong>Susanto Ganguly</strong> (Sir Ganguly)
-            </p>
+        <div className="min-h-screen flex flex-col px-4 py-6 sm:py-8">
+          {/* Header Section */}
+          <div className="text-center mb-8 sm:mb-12 flex-shrink-0">
+            <div className="animate-fade-in">
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight">
+                🎭 Choose Your AI Avatar
+              </h1>
+              <p className="text-lg sm:text-xl text-white/90 mb-2 px-2">
+                Select an avatar to start your conversation
+              </p>
+              <p className="text-sm sm:text-base text-white/70 px-2">
+                Designed by <strong>Susanto Ganguly</strong> (Sir Ganguly)
+              </p>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Object.entries(AVATAR_CONFIG).map(([key, config]) => (
-              <div
-                key={key}
-                className="avatar-card glass rounded-2xl p-6 cursor-pointer text-center text-white slide-up"
-                onClick={() => selectAvatar(key)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    selectAvatar(key)
-                  }
-                }}
-              >
-                <div className="avatar-image-container">
-                  <img
-                    src={config.image}
-                    alt={config.name}
-                    className="w-24 h-24 rounded-full object-cover mx-auto"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'block';
+          {/* Avatar Grid */}
+          <div className="flex-1 flex items-start justify-center">
+            <div className="w-full max-w-6xl">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                {Object.entries(AVATAR_CONFIG).map(([key, config], index) => (
+                  <div
+                    key={key}
+                    className="avatar-card glass rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 cursor-pointer text-center text-white transform transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl"
+                    onClick={() => selectAvatar(key)}
+                    role="button"
+                    tabIndex={0}
+                    style={{
+                      animationDelay: `${index * 100}ms`
                     }}
-                  />
-                  <div className="text-4xl" style={{display: 'none'}}>{config.emoji}</div>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{config.name}</h3>
-                <p className="text-white/80 text-sm">{config.domain}</p>
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        selectAvatar(key)
+                      }
+                    }}
+                  >
+                    <div className="avatar-image-container mb-2 sm:mb-3">
+                      <img
+                        src={config.image}
+                        alt={config.name}
+                        className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover mx-auto border-2 sm:border-4 border-white/30 shadow-lg transition-all duration-300"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextElementSibling.style.display = 'block';
+                        }}
+                      />
+                      <div className="text-2xl sm:text-3xl lg:text-4xl" style={{display: 'none'}}>{config.emoji}</div>
+                    </div>
+                    <h3 className="text-sm sm:text-base lg:text-xl font-semibold mb-1 sm:mb-2 leading-tight">{config.name}</h3>
+                    <p className="text-white/80 text-xs sm:text-sm lg:text-base leading-tight px-1">{config.domain}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="text-center mt-8 flex-shrink-0">
+            <p className="text-white/60 text-xs sm:text-sm">
+              Tap any avatar to begin your learning journey
+            </p>
           </div>
         </div>
       )}
 
       {/* Chat View */}
       {currentView === 'chat' && selectedAvatar && (
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-screen bg-gradient-to-b from-transparent to-black/10">
           {/* Header */}
-          <div className="glass border-b border-white/20 p-4 flex items-center justify-between">
+          <div className="glass border-b border-white/20 p-3 sm:p-4 flex items-center justify-between flex-shrink-0 safe-area-top">
             <button
               onClick={goBack}
-              className="btn-ghost flex items-center gap-2"
+              className="btn-ghost flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-sm sm:text-base"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
-              Back
+              <span className="hidden sm:inline">Back</span>
             </button>
             
-            <div className="text-center text-white">
-              <h2 className="font-semibold">{selectedAvatar.config.name}</h2>
-              <p className="text-sm opacity-70">{selectedAvatar.config.domain}</p>
+            <div className="text-center text-white flex-1 px-2">
+              <h2 className="font-semibold text-sm sm:text-base truncate">{selectedAvatar.config.name}</h2>
+              <p className="text-xs sm:text-sm opacity-70 truncate">{selectedAvatar.config.domain}</p>
             </div>
             
             <button
               onClick={toggleTheme}
-              className="btn-ghost"
+              className="btn-ghost p-2 sm:p-3"
               aria-label="Toggle dark mode"
             >
               {isDarkMode ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="5"/>
                   <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
                 </svg>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
               )}
@@ -477,41 +547,58 @@ export default function Home() {
           </div>
           
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto mobile-padding py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
             {/* Selected Avatar Display */}
-            <div className="text-center mb-8">
-              <div className="avatar-image-container mx-auto mb-4">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="avatar-image-container mx-auto mb-3 sm:mb-4">
                 <img
                   src={selectedAvatar.config.image}
                   alt={selectedAvatar.config.name}
-                  className={`w-32 h-32 rounded-full object-cover mx-auto ${isSpeaking ? 'speaking' : ''}`}
+                  className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 rounded-full object-cover mx-auto border-3 sm:border-4 border-white/40 shadow-2xl transition-all duration-300 ${isSpeaking ? 'speaking scale-110' : ''}`}
                   onError={(e) => {
                     e.target.style.display = 'none';
                     e.target.nextElementSibling.style.display = 'block';
                   }}
                 />
-                <div className={`text-6xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
+                <div className={`text-5xl sm:text-6xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
                   {selectedAvatar.config.emoji}
                 </div>
               </div>
+              <div className="text-white/80 text-sm sm:text-base px-4">
+                <p className="font-medium">{selectedAvatar.config.name}</p>
+                <p className="text-xs sm:text-sm opacity-75">{selectedAvatar.config.domain}</p>
+              </div>
             </div>
             
+            {/* Welcome Message */}
+            {messages.length === 0 && (
+              <div className="text-center text-white/60 px-4 py-8">
+                <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/10">
+                  <p className="text-sm sm:text-base mb-3">👋 Welcome! I'm ready to help you learn.</p>
+                  <p className="text-xs sm:text-sm">Tap the <strong>Talk</strong> button to ask me anything about {selectedAvatar.config.domain.toLowerCase()}!</p>
+                </div>
+              </div>
+            )}
+            
             {/* Messages */}
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
                 key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-3 sm:mb-4`}
+                style={{
+                  animationDelay: `${index * 200}ms`
+                }}
               >
-                <div className={`max-w-sm lg:max-w-md ${
+                <div className={`max-w-[85%] sm:max-w-sm lg:max-w-md ${
                   message.type === 'user' 
-                    ? 'chat-bubble-user ml-4' 
-                    : 'chat-bubble-ai mr-4'
-                }`}>
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-2xl rounded-br-md p-3 sm:p-4 shadow-lg ml-2 sm:ml-4' 
+                    : 'bg-white/90 backdrop-blur-md text-gray-800 rounded-2xl rounded-bl-md p-3 sm:p-4 shadow-lg border border-white/30 mr-2 sm:mr-4'
+                } animate-slide-up`}>
+                  <p className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{message.content}</p>
                   {message.type === 'ai' && (
                     <button
                       onClick={() => copyToClipboard(message.content)}
-                      className="mt-2 text-xs opacity-70 hover:opacity-100 flex items-center gap-1"
+                      className="mt-3 text-xs opacity-70 hover:opacity-100 flex items-center gap-1 transition-opacity"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -526,53 +613,70 @@ export default function Home() {
           </div>
           
           {/* Voice Controls */}
-          <div className="glass border-t border-white/20 p-4">
-            <div className="flex items-center justify-center gap-4">
+          <div className="glass border-t border-white/20 p-3 sm:p-4 flex-shrink-0 safe-area-bottom">
+            {/* Status Bar */}
+            <div className="text-center mb-3">
+              {isListening && (
+                <div className="inline-flex items-center gap-2 bg-green-500/20 text-green-300 px-3 py-1 rounded-full text-sm animate-pulse">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+                  Listening...
+                </div>
+              )}
+              {isSpeaking && (
+                <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm animate-pulse">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+                  Speaking...
+                </div>
+              )}
+              {!isListening && !isSpeaking && (
+                <p className="text-white/60 text-xs sm:text-sm">
+                  Tap <strong>Talk</strong> to ask a question
+                </p>
+              )}
+            </div>
+            
+            {/* Control Buttons */}
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
               <button
                 onClick={() => speakText(messages[messages.length - 1]?.content || '')}
-                className="btn-secondary"
+                className="btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base disabled:opacity-50"
                 disabled={!messages.length || isSpeaking}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                Start
+                <span className="hidden sm:inline">Start</span>
               </button>
               
               <button
                 onClick={stopSpeech}
-                className="btn-secondary"
+                className="btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base disabled:opacity-50"
                 disabled={!isSpeaking}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="6" y="6" width="12" height="12"/>
                 </svg>
-                Stop
+                <span className="hidden sm:inline">Stop</span>
               </button>
               
               <button
                 onClick={startListening}
-                className={`btn-primary ${isListening ? 'animate-pulse' : ''}`}
+                className={`btn-primary flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-semibold ${isListening ? 'animate-pulse bg-green-500 hover:bg-green-600' : ''} disabled:opacity-50 min-w-[80px] sm:min-w-[100px]`}
                 disabled={isListening}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                   <line x1="12" y1="19" x2="12" y2="23"/>
                   <line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
-                {isListening ? 'Listening...' : 'Talk'}
+                {isListening ? 'Listening' : 'Talk'}
               </button>
-            </div>
-            
-            {/* Status */}
-            <div className="text-center mt-2">
-              {isListening && <span className="status-listening">Listening...</span>}
-              {isSpeaking && <span className="status-speaking">Speaking...</span>}
             </div>
           </div>
         </div>
       )}
     </div>
   )
+}
 }
