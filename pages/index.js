@@ -112,10 +112,21 @@ export default function Home() {
   const [notification, setNotification] = useState(null)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [hasPlayedWelcome, setHasPlayedWelcome] = useState(false)
+  const [showWelcomeButton, setShowWelcomeButton] = useState(false)
   
   const recognitionRef = useRef(null)
   const utteranceRef = useRef(null)
+  const welcomeTimeoutRef = useRef(null)
   
+  // Welcome greeting messages
+  const WELCOME_GREETINGS = [
+    "Welcome to AI Avatar Assistant! I'm here to help you learn with personalized AI teachers.",
+    "Hello! Welcome to your personal AI learning experience. Choose any teacher to start your educational journey.",
+    "Greetings! I'm your AI Avatar Assistant created by Sir Ganguly. Select a teacher to begin learning.",
+    "Welcome! Ready to explore knowledge with AI-powered teachers? Pick any avatar to get started."
+  ]
+
   // Haptic feedback function
   const hapticFeedback = (type = 'light') => {
     if (isMobile && 'vibrate' in navigator) {
@@ -136,6 +147,62 @@ export default function Home() {
           navigator.vibrate(25)
       }
     }
+  }
+
+  // Play welcome greeting
+  const playWelcomeGreeting = () => {
+    if (!speechSupported || hasPlayedWelcome) return
+
+    const randomGreeting = WELCOME_GREETINGS[Math.floor(Math.random() * WELCOME_GREETINGS.length)]
+    
+    try {
+      const utterance = new SpeechSynthesisUtterance(randomGreeting)
+      utterance.volume = 0.8
+      utterance.rate = 0.9
+      utterance.pitch = 1.1
+      
+      // Select a pleasant voice if available
+      const voices = speechSynthesis.getVoices()
+      const preferredVoice = voices.find(voice => 
+        voice.name.includes('Female') || 
+        voice.name.includes('Samantha') || 
+        voice.name.includes('Alex') ||
+        voice.lang.startsWith('en')
+      )
+      if (preferredVoice) {
+        utterance.voice = preferredVoice
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        setHasPlayedWelcome(true)
+        setShowWelcomeButton(false)
+      }
+      
+      utterance.onend = () => {
+        setIsSpeaking(false)
+      }
+      
+      utterance.onerror = (error) => {
+        console.log('Welcome speech error:', error)
+        setIsSpeaking(false)
+        setShowWelcomeButton(true) // Show manual button if auto-play fails
+      }
+
+      speechSynthesis.speak(utterance)
+      utteranceRef.current = utterance
+      
+    } catch (error) {
+      console.error('Error playing welcome greeting:', error)
+      setShowWelcomeButton(true) // Show manual button if error
+    }
+  }
+
+  // Manual welcome greeting trigger
+  const playWelcomeManually = () => {
+    hapticFeedback('medium')
+    setShowWelcomeButton(false)
+    playWelcomeGreeting()
   }
   
   useEffect(() => {
@@ -207,10 +274,31 @@ export default function Home() {
         }
       }
       
-      setTimeout(() => setIsLoading(false), 1500)
+      setTimeout(() => {
+        setIsLoading(false)
+        
+        // Trigger welcome greeting after a short delay
+        welcomeTimeoutRef.current = setTimeout(() => {
+          // Wait for voices to load before playing welcome
+          if (speechSynthesis.getVoices().length === 0) {
+            speechSynthesis.addEventListener('voiceschanged', () => {
+              playWelcomeGreeting()
+            }, { once: true })
+          } else {
+            playWelcomeGreeting()
+          }
+        }, 1500) // 1.5 second delay after loading completes
+      }, 1500)
     }
     
     initApp()
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (welcomeTimeoutRef.current) {
+        clearTimeout(welcomeTimeoutRef.current)
+      }
+    }
   }, [])
   
   const showNotification = (message, type = 'info') => {
@@ -376,6 +464,10 @@ export default function Home() {
     if (speechSynthesis) {
       speechSynthesis.cancel()
       setIsSpeaking(false)
+      // Reset welcome button state if welcome was interrupted
+      if (!hasPlayedWelcome) {
+        setShowWelcomeButton(true)
+      }
     }
   }
   
@@ -414,6 +506,15 @@ export default function Home() {
           <p className="text-sm sm:text-base opacity-70 animate-slide-up" style={{animationDelay: '0.2s'}}>
             Created by <strong>Susanto Ganguly</strong> (Sir Ganguly)
           </p>
+          <div className="mt-4 animate-slide-up" style={{animationDelay: '0.3s'}}>
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-xs sm:text-sm opacity-80">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+              🎵 Welcome greeting ready
+            </div>
+          </div>
           <div className="mt-6 flex justify-center space-x-1 animate-slide-up" style={{animationDelay: '0.4s'}}>
             <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
             <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
@@ -501,6 +602,42 @@ export default function Home() {
           
           {/* Footer */}
           <div className="text-center mt-8 flex-shrink-0">
+            {/* Welcome Button - shows if auto-greeting failed */}
+            {showWelcomeButton && speechSupported && (
+              <div className="mb-6">
+                <button
+                  onClick={playWelcomeManually}
+                  className="btn-primary flex items-center gap-2 mx-auto px-6 py-3 text-sm sm:text-base animate-bounce-in"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  🎵 Play Welcome Message
+                </button>
+                <p className="text-white/50 text-xs mt-2">
+                  Click to hear your welcome greeting
+                </p>
+              </div>
+            )}
+            
+            {/* Speaking indicator during welcome */}
+            {isSpeaking && !selectedAvatar && (
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-2 rounded-full text-sm animate-pulse">
+                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-ping"></div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  </svg>
+                  Welcome Message Playing...
+                </div>
+              </div>
+            )}
+            
             <p className="text-white/60 text-xs sm:text-sm">
               Tap any avatar to begin your learning journey
             </p>
