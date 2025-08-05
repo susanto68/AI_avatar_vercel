@@ -85,7 +85,7 @@
     @apply transform transition-all duration-200 ease-out;
     @apply hover:scale-105 hover:shadow-lg;
     @apply focus:outline-none focus:ring-4 focus:ring-primary-500/50;
-    @apply active:scale-95 active:bg-primary-700;
+    @apply active:scale-95;
     /* Minimum touch target size for accessibility */
     min-height: 44px;
     min-width: 44px;
@@ -104,7 +104,7 @@
     @apply transform transition-all duration-200 ease-out;
     @apply hover:scale-105 hover:shadow-lg;
     @apply focus:outline-none focus:ring-4 focus:ring-secondary-500/50;
-    @apply active:scale-95 active:bg-secondary-700;
+    @apply active:scale-95;
     min-height: 44px;
     min-width: 44px;
     -webkit-user-select: none;
@@ -120,7 +120,7 @@
     @apply transform transition-all duration-200 ease-out;
     @apply hover:bg-white/20 hover:scale-105;
     @apply focus:outline-none focus:ring-4 focus:ring-white/30;
-    @apply active:scale-95 active:bg-white/30;
+    @apply active:scale-95;
     min-height: 44px;
     min-width: 44px;
     -webkit-user-select: none;
