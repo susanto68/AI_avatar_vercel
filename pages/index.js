@@ -580,17 +580,24 @@ export default function Home() {
                       }
                     }}
                   >
-                    <div className="avatar-image-container mb-2 sm:mb-3">
+                    <div className="avatar-image-container mb-2 sm:mb-3 relative">
                       <img
                         src={config.image}
                         alt={config.name}
-                        className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover mx-auto border-2 sm:border-4 border-white/30 shadow-lg transition-all duration-300"
+                        className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-full object-cover mx-auto border-2 sm:border-4 border-white/30 shadow-lg transition-all duration-300"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextElementSibling.style.display = 'block';
                         }}
                       />
-                      <div className="text-2xl sm:text-3xl lg:text-4xl" style={{display: 'none'}}>{config.emoji}</div>
+                      <div className="text-3xl sm:text-4xl lg:text-5xl" style={{display: 'none'}}>{config.emoji}</div>
+                      
+                      {/* Logo Badge */}
+                      <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 lg:-bottom-3 lg:-right-3 bg-white/90 backdrop-blur-sm rounded-full p-1 sm:p-1.5 lg:p-2 shadow-lg border border-white/50">
+                        <div className="text-lg sm:text-xl lg:text-2xl">
+                          {config.emoji}
+                        </div>
+                      </div>
                     </div>
                     <h3 className="text-sm sm:text-base lg:text-xl font-semibold mb-1 sm:mb-2 leading-tight">{config.name}</h3>
                     <p className="text-white/80 text-xs sm:text-sm lg:text-base leading-tight px-1">{config.domain}</p>
@@ -687,18 +694,25 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
             {/* Selected Avatar Display */}
             <div className="text-center mb-6 sm:mb-8">
-              <div className="avatar-image-container mx-auto mb-3 sm:mb-4">
+              <div className="avatar-image-container mx-auto mb-3 sm:mb-4 relative">
                 <img
                   src={selectedAvatar.config.image}
                   alt={selectedAvatar.config.name}
-                  className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 rounded-full object-cover mx-auto border-3 sm:border-4 border-white/40 shadow-2xl transition-all duration-300 ${isSpeaking ? 'speaking scale-110' : ''}`}
+                  className={`w-24 h-24 sm:w-28 sm:h-28 lg:w-36 lg:h-36 rounded-full object-cover mx-auto border-3 sm:border-4 border-white/40 shadow-2xl transition-all duration-300 ${isSpeaking ? 'speaking scale-110' : ''}`}
                   onError={(e) => {
                     e.target.style.display = 'none';
                     e.target.nextElementSibling.style.display = 'block';
                   }}
                 />
-                <div className={`text-5xl sm:text-6xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
+                <div className={`text-6xl sm:text-7xl lg:text-8xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
                   {selectedAvatar.config.emoji}
+                </div>
+                
+                {/* Logo Badge */}
+                <div className={`absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 lg:-bottom-4 lg:-right-4 bg-white/90 backdrop-blur-sm rounded-full p-2 sm:p-2.5 lg:p-3 shadow-lg border border-white/50 transition-all duration-300 ${isSpeaking ? 'scale-110' : ''}`}>
+                  <div className="text-xl sm:text-2xl lg:text-3xl">
+                    {selectedAvatar.config.emoji}
+                  </div>
                 </div>
               </div>
               <div className="text-white/80 text-sm sm:text-base px-4">
