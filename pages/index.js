@@ -113,11 +113,14 @@ export default function Home() {
   const [speechSupported, setSpeechSupported] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [hasPlayedWelcome, setHasPlayedWelcome] = useState(false)
-  const [showWelcomeButton, setShowWelcomeButton] = useState(false)
-  const [textInput, setTextInput] = useState('')
   const [showTextInput, setShowTextInput] = useState(false)
+  const [textInput, setTextInput] = useState('')
   const [processingMessage, setProcessingMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // New state for Division One and Two
+  const [currentText, setCurrentText] = useState('')
+  const [divisionTwoContent, setDivisionTwoContent] = useState(null)
   
   const recognitionRef = useRef(null)
   const utteranceRef = useRef(null)
@@ -182,7 +185,6 @@ export default function Home() {
       utterance.onstart = () => {
         setIsSpeaking(true)
         setHasPlayedWelcome(true)
-        setShowWelcomeButton(false)
       }
       
       utterance.onend = () => {
@@ -192,7 +194,6 @@ export default function Home() {
       utterance.onerror = (error) => {
         console.log('Welcome speech error:', error)
         setIsSpeaking(false)
-        setShowWelcomeButton(true) // Show manual button if auto-play fails
       }
 
       speechSynthesis.speak(utterance)
@@ -200,16 +201,10 @@ export default function Home() {
       
     } catch (error) {
       console.error('Error playing welcome greeting:', error)
-      setShowWelcomeButton(true) // Show manual button if error
     }
   }
 
-  // Manual welcome greeting trigger
-  const playWelcomeManually = () => {
-    hapticFeedback('medium')
-    setShowWelcomeButton(false)
-    playWelcomeGreeting()
-  }
+
   
   useEffect(() => {
     // Initialize app
@@ -291,6 +286,10 @@ export default function Home() {
     setCurrentView('chat')
     setMessages([])
     
+    // Initialize new interface state
+    setCurrentText('')
+    setDivisionTwoContent(null)
+    
     // Add greeting message
     setTimeout(() => {
       const greetingMessage = {
@@ -325,7 +324,10 @@ export default function Home() {
     setIsProcessing(true)
     setProcessingMessage(message)
     
-    // Add user message
+    // Update Division One - show user's question
+    setCurrentText(`You: ${message}`)
+    
+    // Add user message to history (for backward compatibility)
     const userMessage = {
       id: Date.now(),
       type: 'user',
@@ -362,7 +364,14 @@ export default function Home() {
       const data = await response.json()
       console.log('API response received:', data)
       
-      // Add AI response
+      // Parse structured content for Division Two
+      const structuredContent = parseStructuredContent(data.reply)
+      setDivisionTwoContent(structuredContent)
+      
+      // Update Division One - show AI introduction text
+      setCurrentText(`Avatar: ${data.reply.split('\n')[0]}`) // Show first line as introduction
+      
+      // Add AI response to history (for backward compatibility)
       const aiMessage = {
         id: Date.now() + 1,
         type: 'ai',
@@ -475,6 +484,10 @@ export default function Home() {
     
     hapticFeedback('light')
     
+    // Clear Division One and Two for new conversation
+    setCurrentText('')
+    setDivisionTwoContent(null)
+    
     // Stop any existing speech
     if (isSpeaking) {
       speechSynthesis.cancel()
@@ -503,10 +516,6 @@ export default function Home() {
     if (speechSynthesis) {
       speechSynthesis.cancel()
       setIsSpeaking(false)
-      // Reset welcome button state if welcome was interrupted
-      if (!hasPlayedWelcome) {
-        setShowWelcomeButton(true)
-      }
     }
   }
   
@@ -521,6 +530,43 @@ export default function Home() {
       })
     }
   }
+
+  // Parse AI response for structured content (Q&A or code blocks)
+  const parseStructuredContent = (response) => {
+    // Check for code blocks
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
+    const codeBlocks = []
+    let match
+    
+    while ((match = codeBlockRegex.exec(response)) !== null) {
+      codeBlocks.push({
+        language: match[1] || 'text',
+        code: match[2].trim()
+      })
+    }
+    
+    // Check for Q&A format
+    const qaRegex = /Q:\s*(.*?)(?=\nA:|$)/g
+    const qaPairs = []
+    
+    while ((match = qaRegex.exec(response)) !== null) {
+      const question = match[1].trim()
+      const answerMatch = response.match(new RegExp(`Q:\\s*${question.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\nA:\\s*(.*?)(?=\nQ:|$)`, 's'))
+      if (answerMatch) {
+        qaPairs.push({
+          question,
+          answer: answerMatch[1].trim()
+        })
+      }
+    }
+    
+    return {
+      hasCodeBlocks: codeBlocks.length > 0,
+      codeBlocks,
+      hasQAPairs: qaPairs.length > 0,
+      qaPairs
+    }
+  }
   
   const goBack = () => {
     hapticFeedback('light') // Haptic feedback for navigation
@@ -531,6 +577,8 @@ export default function Home() {
     setMessages([])
     setTextInput('')
     setShowTextInput(false)
+    setCurrentText('')
+    setDivisionTwoContent(null)
     stopSpeech()
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop()
@@ -749,26 +797,6 @@ export default function Home() {
           
           {/* Footer */}
           <div className="text-center mt-8 flex-shrink-0">
-            {/* Welcome Button - shows if auto-greeting failed */}
-            {showWelcomeButton && speechSupported && (
-              <div className="mb-6">
-                <button
-                  onClick={playWelcomeManually}
-                  className="btn-primary flex items-center gap-2 mx-auto px-6 py-3 text-sm sm:text-base animate-bounce-in"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                    <line x1="12" y1="19" x2="12" y2="23"/>
-                    <line x1="8" y1="23" x2="16" y2="23"/>
-                  </svg>
-                  🎵 Play Welcome Message
-                </button>
-                <p className="text-white/50 text-xs mt-2">
-                  Click to hear your welcome greeting
-                </p>
-              </div>
-            )}
             
             {/* Speaking indicator during welcome */}
             {isSpeaking && !selectedAvatar && (
@@ -792,7 +820,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Chat View */}
+      {/* Chat View - Two Division Layout */}
       {currentView === 'chat' && selectedAvatar && (
         <div className="flex flex-col h-screen bg-gradient-to-b from-transparent to-black/10">
           {/* Header */}
@@ -830,9 +858,9 @@ export default function Home() {
             </button>
           </div>
           
-          {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-            {/* Selected Avatar Display */}
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6">
+            {/* Division One: Avatar Image */}
             <div className="text-center mb-6 sm:mb-8">
               <div className="avatar-image-container mx-auto mb-3 sm:mb-4 relative p-4 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20">
                 <img
@@ -861,184 +889,115 @@ export default function Home() {
               </div>
             </div>
             
-                         {/* Welcome Message */}
-             {messages.length === 0 && !isProcessing && (
-               <div className="text-center text-white/60 px-4 py-8">
-                 <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/10">
-                   <p className="text-sm sm:text-base mb-3">👋 Welcome! I'm ready to help you learn.</p>
-                   <p className="text-xs sm:text-sm">Tap the <strong>Talk</strong> button to ask me anything about {selectedAvatar.config.domain.toLowerCase()}!</p>
-                 </div>
-               </div>
-             )}
-             
-                      {/* Processing Message */}
-         {isProcessing && (
-           <div className="flex-1 flex items-center justify-center px-4 py-6">
-             <div className="bg-gradient-to-r from-blue-500/30 to-purple-500/30 backdrop-blur-md rounded-3xl p-8 border border-blue-300/40 max-w-lg mx-auto shadow-2xl">
-               <div className="flex items-center justify-center mb-6">
-                 <div className="w-10 h-10 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mr-4"></div>
-                 <h3 className="text-xl font-bold text-blue-100">Processing your question...</h3>
-               </div>
-               <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-6 border border-white/30 mb-6">
-                 <p className="text-sm text-white/80 mb-3 font-medium">You asked:</p>
-                 <p className="text-lg font-semibold text-white leading-relaxed">"{processingMessage}"</p>
-               </div>
-               <div className="flex items-center justify-center text-blue-200 text-base font-medium">
-                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-3 animate-pulse">
-                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                 </svg>
-                 Thinking and preparing response...
-               </div>
-             </div>
-           </div>
-         )}
+            {/* Division One: Text Box */}
+            <div className="mb-6">
+              <div className="bg-white/90 backdrop-blur-md text-gray-800 rounded-2xl p-4 sm:p-6 border border-white/30 shadow-lg min-h-[120px] flex items-center justify-center">
+                {currentText ? (
+                  <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-center">
+                    {currentText}
+                  </p>
+                ) : (
+                  <p className="text-gray-500 text-sm sm:text-base text-center">
+                    👋 Welcome! I'm ready to help you learn.<br/>
+                    Tap the <strong>Talk</strong> button to ask me anything about {selectedAvatar.config.domain.toLowerCase()}!
+                  </p>
+                )}
+              </div>
+            </div>
             
-            {/* Messages */}
-            {messages.map((message, index) => (
-              <div
-                key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mb-3 sm:mb-4`}
-                style={{
-                  animationDelay: `${index * 200}ms`
-                }}
-              >
-                <div className={`max-w-[85%] sm:max-w-sm lg:max-w-md ${
-                  message.type === 'user' 
-                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-2xl rounded-br-md p-3 sm:p-4 shadow-lg ml-2 sm:ml-4' 
-                    : 'bg-white/90 backdrop-blur-md text-gray-800 rounded-2xl rounded-bl-md p-3 sm:p-4 shadow-lg border border-white/30 mr-2 sm:mr-4'
-                } animate-slide-up`}>
-                  <p className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{message.content}</p>
-                  {message.type === 'ai' && (
-                    <button
-                      onClick={() => copyToClipboard(message.content)}
-                      className="mt-3 text-xs opacity-70 hover:opacity-100 flex items-center gap-1 transition-opacity"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
-                      Copy
-                    </button>
-                  )}
+            {/* Division Two: Structured Content */}
+            {divisionTwoContent && (divisionTwoContent.hasCodeBlocks || divisionTwoContent.hasQAPairs) && (
+              <div className="mb-6 space-y-4">
+                {/* Code Blocks */}
+                {divisionTwoContent.hasCodeBlocks && divisionTwoContent.codeBlocks.map((block, index) => (
+                  <div key={index} className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-gray-300 text-sm font-mono">{block.language}</span>
+                      <button
+                        onClick={() => copyToClipboard(block.code)}
+                        className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        Copy code
+                      </button>
+                    </div>
+                    <pre className="text-gray-100 text-sm overflow-x-auto">
+                      <code>{block.code}</code>
+                    </pre>
+                  </div>
+                ))}
+                
+                {/* Q&A Pairs */}
+                {divisionTwoContent.hasQAPairs && divisionTwoContent.qaPairs.map((qa, index) => (
+                  <div key={index} className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                    <p className="text-white font-medium mb-2">Q: {qa.question}</p>
+                    <p className="text-white/80 text-sm leading-relaxed">A: {qa.answer}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+             
+            {/* Processing Message */}
+            {isProcessing && (
+              <div className="text-center">
+                <div className="inline-flex items-center gap-3 bg-purple-500/30 text-purple-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+                  <div className="w-4 h-4 bg-purple-300 rounded-full animate-ping"></div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                  <span className="font-bold">🤔 Processing your question...</span>
                 </div>
               </div>
-            ))}
+            )}
+            
           </div>
           
           {/* Voice Controls */}
           <div className="glass border-t border-white/20 p-3 sm:p-4 flex-shrink-0 safe-area-bottom">
-                                  {/* Status Bar */}
-         <div className="text-center mb-4">
-           {isListening && (
-             <div className="inline-flex items-center gap-3 bg-green-500/30 text-green-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
-               <div className="w-4 h-4 bg-green-300 rounded-full animate-ping"></div>
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
-                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                 <line x1="12" y1="19" x2="12" y2="23"/>
-                 <line x1="8" y1="23" x2="16" y2="23"/>
-               </svg>
-               <span className="font-bold">🎤 Listening... Speak now!</span>
-             </div>
-           )}
-           {isSpeaking && (
-             <div className="inline-flex items-center gap-3 bg-blue-500/30 text-blue-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
-               <div className="w-4 h-4 bg-blue-300 rounded-full animate-ping"></div>
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
-                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-               </svg>
-               <span className="font-bold">🔊 Speaking...</span>
-             </div>
-           )}
-           {isProcessing && (
-             <div className="inline-flex items-center gap-3 bg-purple-500/30 text-purple-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
-               <div className="w-4 h-4 bg-purple-300 rounded-full animate-ping"></div>
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
-                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-               </svg>
-               <span className="font-bold">🤔 Processing your question...</span>
-             </div>
-           )}
-           {!isListening && !isSpeaking && !isProcessing && (
-             <div className="text-center">
-               <p className="text-white/70 text-sm sm:text-base mb-2 font-medium">
-                 🎤 Tap <strong>Talk</strong> to ask a question
-               </p>
-               <p className="text-white/50 text-xs sm:text-sm">
-                 Having trouble with voice? Try the <strong>Text</strong> button
-               </p>
-             </div>
-           )}
-         </div>
-            
-            {/* Text Input */}
-            {showTextInput && (
-              <form onSubmit={handleTextSubmit} className="mb-3">
-                <div className="flex gap-2">
-                  <input
-                    ref={textInputRef}
-                    type="text"
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    placeholder="Type your message here..."
-                    className="flex-1 bg-white/90 backdrop-blur-sm text-gray-800 rounded-lg px-3 py-2 text-sm sm:text-base border border-white/30 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    disabled={isListening}
-                  />
-                  <button
-                    type="submit"
-                    className="btn-primary px-4 py-2 text-sm sm:text-base disabled:opacity-50"
-                    disabled={!textInput.trim() || isListening}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="22" y1="2" x2="11" y2="13"/>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                  </button>
+            {/* Status Bar */}
+            <div className="text-center mb-4">
+              {isListening && (
+                <div className="inline-flex items-center gap-3 bg-green-500/30 text-green-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+                  <div className="w-4 h-4 bg-green-300 rounded-full animate-ping"></div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  <span className="font-bold">🎤 Listening... Speak now!</span>
                 </div>
-              </form>
-            )}
+              )}
+              {isSpeaking && (
+                <div className="inline-flex items-center gap-3 bg-blue-500/30 text-blue-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+                  <div className="w-4 h-4 bg-blue-300 rounded-full animate-ping"></div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                  <span className="font-bold">🔊 Speaking...</span>
+                </div>
+              )}
+              {!isListening && !isSpeaking && !isProcessing && (
+                <div className="text-center">
+                  <p className="text-white/70 text-sm sm:text-base mb-2 font-medium">
+                    🎤 Tap <strong>Talk</strong> to ask a question
+                  </p>
+                </div>
+              )}
+            </div>
             
-            {/* Control Buttons */}
-            <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <button
-                onClick={toggleTextInput}
-                className={`btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base ${showTextInput ? 'bg-primary-500 text-white' : ''}`}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <span className="hidden sm:inline">Text</span>
-              </button>
-              
-              <button
-                onClick={() => speakText(messages[messages.length - 1]?.content || '')}
-                className="btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base disabled:opacity-50"
-                disabled={!messages.length || isSpeaking}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                <span className="hidden sm:inline">Start</span>
-              </button>
-              
-              <button
-                onClick={stopSpeech}
-                className="btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base disabled:opacity-50"
-                disabled={!isSpeaking}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="6" y="6" width="12" height="12"/>
-                </svg>
-                <span className="hidden sm:inline">Stop</span>
-              </button>
-              
+            {/* Talk Button */}
+            <div className="flex items-center justify-center">
               <button
                 onClick={startListening}
-                className={`btn-primary flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-semibold ${isListening ? 'animate-pulse bg-green-500 hover:bg-green-600' : ''} disabled:opacity-50 min-w-[80px] sm:min-w-[100px]`}
+                className={`btn-primary flex items-center gap-2 px-6 py-4 text-base font-semibold ${isListening ? 'animate-pulse bg-green-500 hover:bg-green-600' : ''} disabled:opacity-50 min-w-[120px]`}
                 disabled={isListening}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                   <line x1="12" y1="19" x2="12" y2="23"/>
