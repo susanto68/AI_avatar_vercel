@@ -751,6 +751,89 @@ body {
   animation: slideInUp 0.3s ease-out;
 }
 
+/* Conversation Display Styles */
+.conversation-display {
+  padding: var(--space-4);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.question-display {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--primary-color);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--gray-700);
+  font-family: var(--font-family);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+[data-theme="dark"] .question-display {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-left-color: var(--primary-color);
+}
+
+.answer-display {
+  padding: var(--space-3) var(--space-4);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--success-color);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--gray-700);
+  font-family: var(--font-family);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .answer-display {
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  border-left-color: var(--success-color);
+}
+
+.question-display strong,
+.answer-display strong {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .question-display strong,
+[data-theme="dark"] .answer-display strong {
+  color: var(--primary-color);
+}
+
+/* Listening and Processing Message Styles */
+.listening-message {
+  color: var(--primary-color) !important;
+  font-weight: 500 !important;
+  animation: pulse 1.5s infinite !important;
+}
+
+.processing-message {
+  color: var(--warning-color) !important;
+  font-weight: 500 !important;
+  animation: pulse 1.5s infinite !important;
+}
+
+.user-question {
+  color: var(--primary-color) !important;
+  font-weight: 500 !important;
+  background: var(--gray-50) !important;
+  border-radius: var(--radius-lg) !important;
+  border-left: 4px solid var(--primary-color) !important;
+}
+
+[data-theme="dark"] .user-question {
+  background: var(--dark-surface) !important;
+  color: var(--primary-color) !important;
+}
+
 .greeting-message {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
   color: var(--white) !important;

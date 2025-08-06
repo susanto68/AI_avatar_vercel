@@ -566,6 +566,11 @@ function getAvatarEmoji(avatarType) {
 }
 
 function speakGreeting(greeting) {
+  // Clear any existing timeout
+  if (questionTimeout) {
+    clearTimeout(questionTimeout);
+  }
+  
   // Display greeting with better styling
   const voiceContent = document.getElementById('voiceContent');
   if (voiceContent) voiceContent.innerHTML = `<p class="greeting-message">${greeting}</p>`;
@@ -817,9 +822,25 @@ function displayResponse(question, response) {
   currentAnswer = response;
   lastSpokenText = response;
   
-  // Update voice window
+  // Clear any existing timeout
+  if (questionTimeout) {
+    clearTimeout(questionTimeout);
+  }
+  
+  // Update voice window with both question and answer
   const voiceContent = document.getElementById('voiceContent');
-  if (voiceContent) voiceContent.innerHTML = `<p>${response}</p>`;
+  if (voiceContent) {
+    voiceContent.innerHTML = `
+      <div class="conversation-display">
+        <div class="question-display">
+          <strong>You:</strong> ${question}
+        </div>
+        <div class="answer-display">
+          <strong>Avatar:</strong> ${response}
+        </div>
+      </div>
+    `;
+  }
   
   // Show Q/A summary if response is long (more than 10 words)
   if (isLongResponse(response)) {
@@ -862,10 +883,7 @@ function initRecognition() {
     if (statusEl) statusEl.textContent = 'Listening...';
     hapticFeedback('medium');
     
-    // Clear voice window and show listening message
-    const voiceContent = document.getElementById('voiceContent');
-    if (voiceContent) voiceContent.innerHTML = '<p>Listening...</p>';
-    
+    // Voice window is already cleared in startListening function
     console.log('Speech recognition started');
     
     if (isMobile) {
@@ -878,13 +896,13 @@ function initRecognition() {
     
     // Display the question immediately
     const voiceContent = document.getElementById('voiceContent');
-    if (voiceContent) voiceContent.innerHTML = `<p>${message}</p>`;
+    if (voiceContent) voiceContent.innerHTML = `<p class="user-question">${message}</p>`;
     
-    // Clear the question after 3 seconds
+    // Show processing message after a short delay
     questionTimeout = setTimeout(() => {
       const voiceContent = document.getElementById('voiceContent');
-      if (voiceContent) voiceContent.innerHTML = '<p>Processing...</p>';
-    }, 3000);
+      if (voiceContent) voiceContent.innerHTML = '<p class="processing-message">Processing...</p>';
+    }, 2000);
     
     processUserInput(message);
   };
@@ -895,7 +913,12 @@ function initRecognition() {
     const statusEl = document.getElementById('status');
     if (statusEl) statusEl.textContent = 'Error: ' + event.error;
     
-    // Reset voice window
+    // Clear any existing timeout
+    if (questionTimeout) {
+      clearTimeout(questionTimeout);
+    }
+    
+    // Reset voice window to placeholder
     const voiceContent = document.getElementById('voiceContent');
     if (voiceContent) voiceContent.innerHTML = '<p class="voice-placeholder">Click "Talk" to start your conversation...</p>';
     
@@ -1209,6 +1232,16 @@ function startListening() {
   if (questionTimeout) {
     clearTimeout(questionTimeout);
   }
+  
+  // Clear previous conversation and show listening state
+  const voiceContent = document.getElementById('voiceContent');
+  if (voiceContent) {
+    voiceContent.innerHTML = '<p class="listening-message">Listening...</p>';
+  }
+  
+  // Hide Q/A summary when starting new conversation
+  const qaSummary = document.getElementById('qaSummary');
+  if (qaSummary) qaSummary.style.display = 'none';
   
   // Update recognition language based on avatar
   if (currentAvatar === 'hindi-teacher') {

@@ -114,10 +114,15 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false)
   const [hasPlayedWelcome, setHasPlayedWelcome] = useState(false)
   const [showWelcomeButton, setShowWelcomeButton] = useState(false)
+  const [textInput, setTextInput] = useState('')
+  const [showTextInput, setShowTextInput] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
   
   const recognitionRef = useRef(null)
   const utteranceRef = useRef(null)
   const welcomeTimeoutRef = useRef(null)
+  const textInputRef = useRef(null)
   
   // Welcome greeting messages
   const WELCOME_GREETINGS = [
@@ -229,50 +234,7 @@ export default function Home() {
         }
       }
       
-      // Initialize speech recognition
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = false
-        recognitionRef.current.interimResults = false
-        recognitionRef.current.lang = 'en-US'
-        
-        recognitionRef.current.onstart = () => {
-          setIsListening(true)
-          showNotification('Listening...', 'info')
-        }
-        
-        recognitionRef.current.onresult = (event) => {
-          const transcript = event.results[0][0].transcript
-          handleUserMessage(transcript)
-        }
-        
-        recognitionRef.current.onerror = (event) => {
-          setIsListening(false)
-          console.error('Speech recognition error:', event.error)
-          
-          let errorMessage = 'Speech recognition error'
-          switch (event.error) {
-            case 'no-speech':
-              errorMessage = 'No speech detected. Please try again.'
-              break
-            case 'audio-capture':
-              errorMessage = 'Microphone not found. Please check your microphone.'
-              break
-            case 'not-allowed':
-              errorMessage = 'Microphone access denied. Please allow microphone access.'
-              break
-            case 'network':
-              errorMessage = 'Network error. Please check your connection.'
-              break
-          }
-          showNotification(errorMessage, 'error')
-        }
-        
-        recognitionRef.current.onend = () => {
-          setIsListening(false)
-        }
-      }
+             // Initialize speech recognition will be done after functions are defined
       
       setTimeout(() => {
         setIsLoading(false)
@@ -304,6 +266,9 @@ export default function Home() {
   const showNotification = (message, type = 'info') => {
     setNotification({ message, type })
     setTimeout(() => setNotification(null), 5000)
+    
+    // Also log to console for debugging
+    console.log(`Notification [${type}]:`, message)
   }
   
   const toggleTheme = () => {
@@ -314,10 +279,13 @@ export default function Home() {
   }
   
   const selectAvatar = (avatarType) => {
+    console.log('selectAvatar called with:', avatarType)
     hapticFeedback('medium') // Haptic feedback for avatar selection
     
     const config = AVATAR_CONFIG[avatarType]
-    setSelectedAvatar({ type: avatarType, config })
+    const avatarData = { type: avatarType, config }
+    console.log('Setting selectedAvatar to:', avatarData)
+    setSelectedAvatar(avatarData)
     setCurrentView('chat')
     setMessages([])
     
@@ -337,7 +305,23 @@ export default function Home() {
   }
   
   const handleUserMessage = async (message) => {
-    if (!selectedAvatar) return
+    console.log('handleUserMessage called with:', message)
+    console.log('selectedAvatar:', selectedAvatar)
+    
+    if (!selectedAvatar) {
+      console.log('No avatar selected, returning')
+      return
+    }
+    
+    // Stop any existing speech
+    if (isSpeaking) {
+      speechSynthesis.cancel()
+      setIsSpeaking(false)
+    }
+    
+    // Show processing state
+    setIsProcessing(true)
+    setProcessingMessage(message)
     
     // Add user message
     const userMessage = {
@@ -347,7 +331,12 @@ export default function Home() {
       timestamp: new Date()
     }
     
-    setMessages(prev => [...prev, userMessage])
+    console.log('Adding user message:', userMessage)
+    setMessages(prev => {
+      const newMessages = [...prev, userMessage]
+      console.log('Updated messages array:', newMessages)
+      return newMessages
+    })
     
     try {
       // Call API
@@ -358,7 +347,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           message,
-          avatar: selectedAvatar.type,
+          avatarType: selectedAvatar.type,
           systemPrompt: selectedAvatar.config.systemPrompt
         })
       })
@@ -368,6 +357,7 @@ export default function Home() {
       }
       
       const data = await response.json()
+      console.log('API response received:', data)
       
       // Add AI response
       const aiMessage = {
@@ -377,8 +367,21 @@ export default function Home() {
         timestamp: new Date()
       }
       
-      setMessages(prev => [...prev, aiMessage])
-      speakText(data.reply)
+      console.log('Adding AI message:', aiMessage)
+      setMessages(prev => {
+        const newMessages = [...prev, aiMessage]
+        console.log('Updated messages array with AI response:', newMessages)
+        return newMessages
+      })
+      
+      // Clear processing state
+      setIsProcessing(false)
+      setProcessingMessage('')
+      
+      // Speak the AI response
+      setTimeout(() => {
+        speakText(data.reply)
+      }, 500)
       
     } catch (error) {
       console.error('API Error:', error)
@@ -389,6 +392,8 @@ export default function Home() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+      setIsProcessing(false)
+      setProcessingMessage('')
       showNotification('Failed to get response. Please try again.', 'error')
     }
   }
@@ -441,9 +446,36 @@ export default function Home() {
   }
   
   const startListening = () => {
-    if (!recognitionRef.current || isListening) return
+    console.log('startListening called')
+    console.log('recognitionRef.current:', recognitionRef.current)
+    console.log('isListening:', isListening)
+    console.log('selectedAvatar in startListening:', selectedAvatar)
     
-    hapticFeedback('light') // Haptic feedback for starting voice recognition
+    if (!recognitionRef.current) {
+      console.error('Speech recognition not initialized')
+      showNotification('Voice recognition not initialized. Please refresh the page.', 'error')
+      return
+    }
+    
+    if (isListening) {
+      console.log('Already listening')
+      return
+    }
+    
+    // Check if avatar is selected before starting voice input
+    if (!selectedAvatar) {
+      console.error('No avatar selected for voice input')
+      showNotification('Please select an avatar first before using voice input.', 'error')
+      return
+    }
+    
+    hapticFeedback('light')
+    
+    // Stop any existing speech
+    if (isSpeaking) {
+      speechSynthesis.cancel()
+      setIsSpeaking(false)
+    }
     
     // Update recognition language based on avatar
     if (selectedAvatar?.type === 'hindi-teacher') {
@@ -453,10 +485,13 @@ export default function Home() {
     }
     
     try {
+      console.log('Starting speech recognition...')
       recognitionRef.current.start()
+      console.log('Voice recognition started successfully')
     } catch (error) {
       console.error('Error starting speech recognition:', error)
-      showNotification('Failed to start voice recognition', 'error')
+      setIsListening(false)
+      showNotification('Failed to start voice recognition. Please try again.', 'error')
     }
   }
   
@@ -489,11 +524,85 @@ export default function Home() {
     setCurrentView('selection')
     setSelectedAvatar(null)
     setMessages([])
+    setTextInput('')
+    setShowTextInput(false)
     stopSpeech()
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop()
     }
   }
+  
+  const toggleTextInput = () => {
+    hapticFeedback('light')
+    setShowTextInput(!showTextInput)
+    if (!showTextInput && textInputRef.current) {
+      setTimeout(() => textInputRef.current.focus(), 100)
+    }
+  }
+  
+  const handleTextSubmit = (e) => {
+    e.preventDefault()
+    if (textInput.trim()) {
+      handleUserMessage(textInput.trim())
+      setTextInput('')
+      setShowTextInput(false)
+    }
+  }
+  
+  // Monitor selectedAvatar state changes
+  useEffect(() => {
+    console.log('selectedAvatar state changed to:', selectedAvatar)
+  }, [selectedAvatar])
+
+  // Initialize speech recognition after all functions are defined
+  useEffect(() => {
+    const initSpeechRecognition = () => {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        try {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+          recognitionRef.current = new SpeechRecognition()
+          recognitionRef.current.continuous = false
+          recognitionRef.current.interimResults = false
+          recognitionRef.current.lang = 'en-US'
+          
+          recognitionRef.current.onstart = () => {
+            setIsListening(true)
+            console.log('Voice recognition started')
+          }
+          
+          recognitionRef.current.onresult = (event) => {
+            const transcript = event.results[0][0].transcript
+            console.log('Voice input received:', transcript)
+            setIsListening(false)
+            handleUserMessage(transcript)
+          }
+          
+          recognitionRef.current.onerror = (event) => {
+            setIsListening(false)
+            console.error('Speech recognition error:', event.error)
+            showNotification('Voice recognition error. Please try again.', 'error')
+          }
+          
+          recognitionRef.current.onend = () => {
+            setIsListening(false)
+          }
+          
+          console.log('Voice recognition initialized successfully')
+        } catch (error) {
+          console.error('Error initializing speech recognition:', error)
+          showNotification('Voice recognition not supported in this browser', 'error')
+        }
+      } else {
+        console.log('Speech recognition not supported')
+        showNotification('Voice recognition not supported in this browser', 'error')
+      }
+    }
+    
+    // Initialize after a short delay to ensure all functions are available
+    const timer = setTimeout(initSpeechRecognition, 1000)
+    
+    return () => clearTimeout(timer)
+  }, [])
   
   if (isLoading) {
     return (
@@ -563,23 +672,40 @@ export default function Home() {
           <div className="flex-1 flex items-start justify-center">
             <div className="w-full max-w-6xl">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-                {Object.entries(AVATAR_CONFIG).map(([key, config], index) => (
-                  <div
-                    key={key}
-                    className="avatar-card glass rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 cursor-pointer text-center text-white transform transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl"
-                    onClick={() => selectAvatar(key)}
-                    role="button"
-                    tabIndex={0}
-                    style={{
-                      animationDelay: `${index * 100}ms`
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        selectAvatar(key)
-                      }
-                    }}
-                  >
+                {Object.entries(AVATAR_CONFIG).map(([key, config], index) => {
+                  // Define gradient backgrounds for each avatar
+                  const gradientStyles = {
+                    'computer-teacher': 'bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700',
+                    'english-teacher': 'bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700',
+                    'biology-teacher': 'bg-gradient-to-br from-green-500 via-emerald-600 to-teal-700',
+                    'physics-teacher': 'bg-gradient-to-br from-yellow-500 via-orange-600 to-red-600',
+                    'chemistry-teacher': 'bg-gradient-to-br from-purple-500 via-pink-600 to-rose-700',
+                    'history-teacher': 'bg-gradient-to-br from-amber-500 via-orange-600 to-red-700',
+                    'geography-teacher': 'bg-gradient-to-br from-blue-500 via-cyan-600 to-teal-700',
+                    'hindi-teacher': 'bg-gradient-to-br from-orange-500 via-red-600 to-pink-700',
+                    'mathematics-teacher': 'bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700',
+                    'doctor': 'bg-gradient-to-br from-red-500 via-pink-600 to-rose-700',
+                    'engineer': 'bg-gradient-to-br from-gray-600 via-slate-700 to-zinc-800',
+                    'lawyer': 'bg-gradient-to-br from-slate-600 via-gray-700 to-zinc-800'
+                  };
+                  
+                  return (
+                    <div
+                      key={key}
+                      className={`avatar-card ${gradientStyles[key]} rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 cursor-pointer text-center text-white transform transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl backdrop-blur-sm border border-white/20`}
+                      onClick={() => selectAvatar(key)}
+                      role="button"
+                      tabIndex={0}
+                      style={{
+                        animationDelay: `${index * 100}ms`
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          selectAvatar(key)
+                        }
+                      }}
+                    >
                     <div className="avatar-image-container mb-2 sm:mb-3 relative">
                       <img
                         src={config.image}
@@ -602,7 +728,8 @@ export default function Home() {
                     <h3 className="text-sm sm:text-base lg:text-xl font-semibold mb-1 sm:mb-2 leading-tight">{config.name}</h3>
                     <p className="text-white/80 text-xs sm:text-sm lg:text-base leading-tight px-1">{config.domain}</p>
                   </div>
-                ))}
+                );
+              })}
               </div>
             </div>
           </div>
@@ -694,7 +821,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
             {/* Selected Avatar Display */}
             <div className="text-center mb-6 sm:mb-8">
-              <div className="avatar-image-container mx-auto mb-3 sm:mb-4 relative">
+              <div className="avatar-image-container mx-auto mb-3 sm:mb-4 relative p-4 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20">
                 <img
                   src={selectedAvatar.config.image}
                   alt={selectedAvatar.config.name}
@@ -721,15 +848,37 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Welcome Message */}
-            {messages.length === 0 && (
-              <div className="text-center text-white/60 px-4 py-8">
-                <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/10">
-                  <p className="text-sm sm:text-base mb-3">👋 Welcome! I'm ready to help you learn.</p>
-                  <p className="text-xs sm:text-sm">Tap the <strong>Talk</strong> button to ask me anything about {selectedAvatar.config.domain.toLowerCase()}!</p>
-                </div>
-              </div>
-            )}
+                         {/* Welcome Message */}
+             {messages.length === 0 && !isProcessing && (
+               <div className="text-center text-white/60 px-4 py-8">
+                 <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/10">
+                   <p className="text-sm sm:text-base mb-3">👋 Welcome! I'm ready to help you learn.</p>
+                   <p className="text-xs sm:text-sm">Tap the <strong>Talk</strong> button to ask me anything about {selectedAvatar.config.domain.toLowerCase()}!</p>
+                 </div>
+               </div>
+             )}
+             
+                      {/* Processing Message */}
+         {isProcessing && (
+           <div className="flex-1 flex items-center justify-center px-4 py-6">
+             <div className="bg-gradient-to-r from-blue-500/30 to-purple-500/30 backdrop-blur-md rounded-3xl p-8 border border-blue-300/40 max-w-lg mx-auto shadow-2xl">
+               <div className="flex items-center justify-center mb-6">
+                 <div className="w-10 h-10 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mr-4"></div>
+                 <h3 className="text-xl font-bold text-blue-100">Processing your question...</h3>
+               </div>
+               <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-6 border border-white/30 mb-6">
+                 <p className="text-sm text-white/80 mb-3 font-medium">You asked:</p>
+                 <p className="text-lg font-semibold text-white leading-relaxed">"{processingMessage}"</p>
+               </div>
+               <div className="flex items-center justify-center text-blue-200 text-base font-medium">
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-3 animate-pulse">
+                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                 </svg>
+                 Thinking and preparing response...
+               </div>
+             </div>
+           </div>
+         )}
             
             {/* Messages */}
             {messages.map((message, index) => (
@@ -765,29 +914,90 @@ export default function Home() {
           
           {/* Voice Controls */}
           <div className="glass border-t border-white/20 p-3 sm:p-4 flex-shrink-0 safe-area-bottom">
-            {/* Status Bar */}
-            <div className="text-center mb-3">
-              {isListening && (
-                <div className="inline-flex items-center gap-2 bg-green-500/20 text-green-300 px-3 py-1 rounded-full text-sm animate-pulse">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
-                  Listening...
+                                  {/* Status Bar */}
+         <div className="text-center mb-4">
+           {isListening && (
+             <div className="inline-flex items-center gap-3 bg-green-500/30 text-green-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+               <div className="w-4 h-4 bg-green-300 rounded-full animate-ping"></div>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
+                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                 <line x1="12" y1="19" x2="12" y2="23"/>
+                 <line x1="8" y1="23" x2="16" y2="23"/>
+               </svg>
+               <span className="font-bold">🎤 Listening... Speak now!</span>
+             </div>
+           )}
+           {isSpeaking && (
+             <div className="inline-flex items-center gap-3 bg-blue-500/30 text-blue-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+               <div className="w-4 h-4 bg-blue-300 rounded-full animate-ping"></div>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-bounce">
+                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+               </svg>
+               <span className="font-bold">🔊 Speaking...</span>
+             </div>
+           )}
+           {isProcessing && (
+             <div className="inline-flex items-center gap-3 bg-purple-500/30 text-purple-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg">
+               <div className="w-4 h-4 bg-purple-300 rounded-full animate-ping"></div>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+               </svg>
+               <span className="font-bold">🤔 Processing your question...</span>
+             </div>
+           )}
+           {!isListening && !isSpeaking && !isProcessing && (
+             <div className="text-center">
+               <p className="text-white/70 text-sm sm:text-base mb-2 font-medium">
+                 🎤 Tap <strong>Talk</strong> to ask a question
+               </p>
+               <p className="text-white/50 text-xs sm:text-sm">
+                 Having trouble with voice? Try the <strong>Text</strong> button
+               </p>
+             </div>
+           )}
+         </div>
+            
+            {/* Text Input */}
+            {showTextInput && (
+              <form onSubmit={handleTextSubmit} className="mb-3">
+                <div className="flex gap-2">
+                  <input
+                    ref={textInputRef}
+                    type="text"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder="Type your message here..."
+                    className="flex-1 bg-white/90 backdrop-blur-sm text-gray-800 rounded-lg px-3 py-2 text-sm sm:text-base border border-white/30 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    disabled={isListening}
+                  />
+                  <button
+                    type="submit"
+                    className="btn-primary px-4 py-2 text-sm sm:text-base disabled:opacity-50"
+                    disabled={!textInput.trim() || isListening}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  </button>
                 </div>
-              )}
-              {isSpeaking && (
-                <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm animate-pulse">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
-                  Speaking...
-                </div>
-              )}
-              {!isListening && !isSpeaking && (
-                <p className="text-white/60 text-xs sm:text-sm">
-                  Tap <strong>Talk</strong> to ask a question
-                </p>
-              )}
-            </div>
+              </form>
+            )}
             
             {/* Control Buttons */}
             <div className="flex items-center justify-center gap-2 sm:gap-4">
+              <button
+                onClick={toggleTextInput}
+                className={`btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base ${showTextInput ? 'bg-primary-500 text-white' : ''}`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span className="hidden sm:inline">Text</span>
+              </button>
+              
               <button
                 onClick={() => speakText(messages[messages.length - 1]?.content || '')}
                 className="btn-secondary flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base disabled:opacity-50"
