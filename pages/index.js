@@ -122,6 +122,9 @@ export default function Home() {
   const [currentText, setCurrentText] = useState('')
   const [divisionTwoContent, setDivisionTwoContent] = useState(null)
   
+  // Debug mode state
+  const [debugMode, setDebugMode] = useState(false)
+  
   const recognitionRef = useRef(null)
   const utteranceRef = useRef(null)
   const welcomeTimeoutRef = useRef(null)
@@ -154,6 +157,17 @@ export default function Home() {
           break
         default:
           navigator.vibrate(25)
+      }
+    }
+  }
+
+  // Debug logger function
+  const debugLog = (category, message, data = null) => {
+    if (debugMode) {
+      const timestamp = new Date().toISOString()
+      console.log(`[${timestamp}] [${category}] ${message}`)
+      if (data) {
+        console.log(`[${timestamp}] [${category}] Data:`, data)
       }
     }
   }
@@ -306,6 +320,7 @@ export default function Home() {
   }
   
   const handleUserMessage = async (message) => {
+    debugLog('API', 'handleUserMessage called', { message, avatar: selectedAvatarRef.current?.type })
     console.log('handleUserMessage called with:', message)
     console.log('selectedAvatar from ref:', selectedAvatarRef.current)
     
@@ -343,26 +358,58 @@ export default function Home() {
     })
     
     try {
-      // Call API
-      console.log('Making API call with avatar:', selectedAvatarRef.current.type)
+      // Prepare API request data
+      const requestBody = {
+        message,
+        avatarType: selectedAvatarRef.current.type,
+        systemPrompt: selectedAvatarRef.current.config.systemPrompt
+      }
+      
+      // Log outgoing API request details
+      console.log('=== API REQUEST LOG ===')
+      console.log('URL:', '/api/chat')
+      console.log('Method:', 'POST')
+      console.log('Headers:', {
+        'Content-Type': 'application/json'
+      })
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2))
+      console.log('Avatar Type:', selectedAvatarRef.current.type)
+      console.log('System Prompt Length:', selectedAvatarRef.current.config.systemPrompt.length)
+      console.log('========================')
+      
+      // Make API call with timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          avatarType: selectedAvatarRef.current.type,
-          systemPrompt: selectedAvatarRef.current.config.systemPrompt
-        })
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       })
       
+      clearTimeout(timeoutId)
+      
+      // Log response details
+      console.log('=== API RESPONSE LOG ===')
+      console.log('Status:', response.status)
+      console.log('Status Text:', response.statusText)
+      console.log('Headers:', Object.fromEntries(response.headers.entries()))
+      console.log('========================')
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`)
       }
       
       const data = await response.json()
-      console.log('API response received:', data)
+      console.log('=== API RESPONSE DATA ===')
+      console.log('Response Data:', JSON.stringify(data, null, 2))
+      console.log('Response Type:', typeof data)
+      console.log('Has Reply Property:', 'reply' in data)
+      console.log('Reply Length:', data.reply ? data.reply.length : 'N/A')
+      console.log('========================')
       
       // Parse structured content for Division Two
       const structuredContent = parseStructuredContent(data.reply)
@@ -396,65 +443,166 @@ export default function Home() {
       }, 500)
       
     } catch (error) {
-      console.error('API Error:', error)
+      console.error('=== API ERROR LOG ===')
+      console.error('Error Type:', error.name)
+      console.error('Error Message:', error.message)
+      console.error('Error Stack:', error.stack)
+      console.error('========================')
+      
+      // Determine specific error message based on error type
+      let errorDisplayMessage = 'Sorry, I encountered an error. Please try again.'
+      
+      if (error.name === 'AbortError') {
+        errorDisplayMessage = 'Request timed out. Please try again.'
+        console.error('API call timed out after 30 seconds')
+      } else if (error.message.includes('Failed to fetch')) {
+        errorDisplayMessage = 'Network error. Please check your connection and try again.'
+        console.error('Network error - possible connectivity issue')
+      } else if (error.message.includes('HTTP error')) {
+        errorDisplayMessage = `Server error (${error.message}). Please try again.`
+        console.error('HTTP error from server')
+      }
+      
+      // Update Division One with error message
+      setCurrentText(`Error: ${errorDisplayMessage}`)
+      
+      // Add error message to history
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: errorDisplayMessage,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+      
+      // Clear processing state
       setIsProcessing(false)
       setProcessingMessage('')
-      showNotification('Failed to get response. Please try again.', 'error')
+      
+      // Show notification
+      showNotification(errorDisplayMessage, 'error')
     }
   }
   
   const speakText = (text) => {
-    if (!speechSupported || !('speechSynthesis' in window)) return
+    debugLog('SPEECH', 'speakText called', { textLength: text.length, avatar: selectedAvatar?.type })
+    console.log('=== SPEECH SYNTHESIS LOG ===')
+    console.log('Text to speak:', text)
+    console.log('Text length:', text.length)
+    console.log('Speech supported:', speechSupported)
+    console.log('SpeechSynthesis available:', 'speechSynthesis' in window)
+    console.log('Current avatar:', selectedAvatar?.type)
+    console.log('============================')
+    
+    if (!speechSupported || !('speechSynthesis' in window)) {
+      console.error('Speech synthesis not supported or available')
+      return
+    }
     
     // Stop any existing speech
     if (isSpeaking) {
+      console.log('Stopping existing speech')
       speechSynthesis.cancel()
     }
     
     setIsSpeaking(true)
+    console.log('Setting isSpeaking to true')
     
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = 0.8
     utterance.pitch = 1.0
     utterance.volume = 1.0
     
+    console.log('Utterance created with settings:', {
+      rate: utterance.rate,
+      pitch: utterance.pitch,
+      volume: utterance.volume
+    })
+    
+    // Get available voices
+    const voices = speechSynthesis.getVoices()
+    console.log('Available voices count:', voices.length)
+    console.log('Available voices:', voices.map(v => ({ name: v.name, lang: v.lang })))
+    
     // Set voice based on avatar
     if (selectedAvatar?.type === 'hindi-teacher') {
-      const voices = speechSynthesis.getVoices()
       const hindiVoice = voices.find(voice => 
         voice.lang.includes('hi') || voice.lang.includes('IN')
       )
       if (hindiVoice) {
         utterance.voice = hindiVoice
+        console.log('Selected Hindi voice:', hindiVoice.name, hindiVoice.lang)
+      } else {
+        console.log('No Hindi voice found, using default')
       }
     } else {
-      const voices = speechSynthesis.getVoices()
       const maleVoice = voices.find(voice => 
         voice.lang.includes('en') && 
         (voice.name.includes('Male') || voice.name.includes('male') || voice.name.includes('David') || voice.name.includes('James'))
       )
       if (maleVoice) {
         utterance.voice = maleVoice
+        console.log('Selected male voice:', maleVoice.name, maleVoice.lang)
+      } else {
+        console.log('No male voice found, using default')
       }
     }
     
+    // Enhanced event handlers with detailed logging
+    utterance.onstart = () => {
+      console.log('=== SPEECH STARTED ===')
+      console.log('Speech synthesis started successfully')
+      console.log('Current utterance:', utterance)
+      console.log('======================')
+    }
+    
     utterance.onend = () => {
+      console.log('=== SPEECH ENDED ===')
+      console.log('Speech synthesis completed successfully')
+      console.log('====================')
       setIsSpeaking(false)
     }
     
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
+      console.error('=== SPEECH SYNTHESIS ERROR ===')
+      console.error('Error event:', event)
+      console.error('Error name:', event.name)
+      console.error('Error message:', event.message)
+      console.error('Error occurred at:', new Date().toISOString())
+      console.error('==============================')
       setIsSpeaking(false)
+      
+      // Show error notification
+      showNotification('Voice playback failed. Please try again.', 'error')
     }
     
-    speechSynthesis.speak(utterance)
-    utteranceRef.current = utterance
+    utterance.onpause = () => {
+      console.log('Speech synthesis paused')
+    }
+    
+    utterance.onresume = () => {
+      console.log('Speech synthesis resumed')
+    }
+    
+    utterance.onboundary = (event) => {
+      console.log('Speech boundary event:', event)
+    }
+    
+    // Attempt to speak
+    try {
+      console.log('Attempting to speak text...')
+      speechSynthesis.speak(utterance)
+      utteranceRef.current = utterance
+      console.log('Speech synthesis speak() called successfully')
+    } catch (error) {
+      console.error('=== SPEECH SYNTHESIS EXCEPTION ===')
+      console.error('Exception during speech synthesis:', error)
+      console.error('Error name:', error.name)
+      console.error('Error message:', error.message)
+      console.error('===============================')
+      setIsSpeaking(false)
+      showNotification('Voice playback failed. Please try again.', 'error')
+    }
   }
   
   const startListening = () => {
@@ -840,22 +988,35 @@ export default function Home() {
               <p className="text-xs sm:text-sm opacity-70 truncate">{selectedAvatar.config.domain}</p>
             </div>
             
-            <button
-              onClick={toggleTheme}
-              className="btn-ghost p-2 sm:p-3"
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDebugMode(!debugMode)}
+                className={`btn-ghost p-2 sm:p-3 ${debugMode ? 'bg-yellow-500/20 text-yellow-300' : ''}`}
+                aria-label="Toggle debug mode"
+                title={debugMode ? 'Debug mode ON' : 'Debug mode OFF'}
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="5"/>
-                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
                 </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-              )}
-            </button>
+              </button>
+              
+              <button
+                onClick={toggleTheme}
+                className="btn-ghost p-2 sm:p-3"
+                aria-label="Toggle dark mode"
+              >
+                {isDarkMode ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="5"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
           
           {/* Main Content Area */}
@@ -891,7 +1052,12 @@ export default function Home() {
             
             {/* Division One: Text Box */}
             <div className="mb-6">
-              <div className="bg-white/90 backdrop-blur-md text-gray-800 rounded-2xl p-4 sm:p-6 border border-white/30 shadow-lg min-h-[120px] flex items-center justify-center">
+              <div className="bg-white/90 backdrop-blur-md text-gray-800 rounded-2xl p-4 sm:p-6 border border-white/30 shadow-lg min-h-[120px] flex items-center justify-center relative">
+                {debugMode && (
+                  <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-mono">
+                    DEBUG
+                  </div>
+                )}
                 {currentText ? (
                   <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-center">
                     {currentText}
