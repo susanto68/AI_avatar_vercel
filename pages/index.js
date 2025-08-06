@@ -123,6 +123,7 @@ export default function Home() {
   const utteranceRef = useRef(null)
   const welcomeTimeoutRef = useRef(null)
   const textInputRef = useRef(null)
+  const selectedAvatarRef = useRef(null)
   
   // Welcome greeting messages
   const WELCOME_GREETINGS = [
@@ -286,6 +287,7 @@ export default function Home() {
     const avatarData = { type: avatarType, config }
     console.log('Setting selectedAvatar to:', avatarData)
     setSelectedAvatar(avatarData)
+    selectedAvatarRef.current = avatarData // Update ref immediately
     setCurrentView('chat')
     setMessages([])
     
@@ -306,9 +308,9 @@ export default function Home() {
   
   const handleUserMessage = async (message) => {
     console.log('handleUserMessage called with:', message)
-    console.log('selectedAvatar:', selectedAvatar)
+    console.log('selectedAvatar from ref:', selectedAvatarRef.current)
     
-    if (!selectedAvatar) {
+    if (!selectedAvatarRef.current) {
       console.log('No avatar selected, returning')
       return
     }
@@ -340,6 +342,7 @@ export default function Home() {
     
     try {
       // Call API
+      console.log('Making API call with avatar:', selectedAvatarRef.current.type)
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -347,8 +350,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           message,
-          avatarType: selectedAvatar.type,
-          systemPrompt: selectedAvatar.config.systemPrompt
+          avatarType: selectedAvatarRef.current.type,
+          systemPrompt: selectedAvatarRef.current.config.systemPrompt
         })
       })
       
@@ -450,6 +453,7 @@ export default function Home() {
     console.log('recognitionRef.current:', recognitionRef.current)
     console.log('isListening:', isListening)
     console.log('selectedAvatar in startListening:', selectedAvatar)
+    console.log('selectedAvatarRef.current:', selectedAvatarRef.current)
     
     if (!recognitionRef.current) {
       console.error('Speech recognition not initialized')
@@ -463,7 +467,7 @@ export default function Home() {
     }
     
     // Check if avatar is selected before starting voice input
-    if (!selectedAvatar) {
+    if (!selectedAvatarRef.current) {
       console.error('No avatar selected for voice input')
       showNotification('Please select an avatar first before using voice input.', 'error')
       return
@@ -478,7 +482,7 @@ export default function Home() {
     }
     
     // Update recognition language based on avatar
-    if (selectedAvatar?.type === 'hindi-teacher') {
+    if (selectedAvatarRef.current?.type === 'hindi-teacher') {
       recognitionRef.current.lang = 'hi-IN'
     } else {
       recognitionRef.current.lang = 'en-US'
@@ -523,6 +527,7 @@ export default function Home() {
     
     setCurrentView('selection')
     setSelectedAvatar(null)
+    selectedAvatarRef.current = null // Clear the ref as well
     setMessages([])
     setTextInput('')
     setShowTextInput(false)
@@ -573,13 +578,16 @@ export default function Home() {
           recognitionRef.current.onresult = (event) => {
             const transcript = event.results[0][0].transcript
             console.log('Voice input received:', transcript)
+            console.log('Current selectedAvatar ref:', selectedAvatarRef.current)
             setIsListening(false)
+            // Use the current selectedAvatar state directly
             handleUserMessage(transcript)
           }
           
           recognitionRef.current.onerror = (event) => {
             setIsListening(false)
             console.error('Speech recognition error:', event.error)
+            console.error('Speech recognition error details:', event)
             showNotification('Voice recognition error. Please try again.', 'error')
           }
           
@@ -602,7 +610,12 @@ export default function Home() {
     const timer = setTimeout(initSpeechRecognition, 1000)
     
     return () => clearTimeout(timer)
-  }, [])
+  }, []) // Keep empty dependency array for initialization only
+
+  // Keep selectedAvatarRef in sync with selectedAvatar state
+  useEffect(() => {
+    selectedAvatarRef.current = selectedAvatar
+  }, [selectedAvatar])
   
   if (isLoading) {
     return (
