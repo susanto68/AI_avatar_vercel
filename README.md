@@ -1,287 +1,427 @@
-# 🎭 AI Avatar Assistant - Created by Sir Ganguly
+# AI Avatar Assistant
 
-A **colorful, mobile-friendly** AI Avatar Assistant web app designed by **Susanto Ganguly** (also known as **Sir Ganguly**) that provides interactive learning experiences through voice and text interactions with subject-specific teacher avatars.
+An interactive Next.js application featuring AI-powered educational avatars with speech recognition and synthesis capabilities. Users can select from various subject-specific AI teachers and engage in voice-based learning conversations.
 
-## ✨ Features
+## 🎯 Project Overview
 
-### 🎙️ **GREETING VOICE (ON AVATAR LOAD)**
-- ✅ Avatar always greets user at the start with a spoken welcome message
-- ✅ "Hello and welcome! I'm your [Subject] Teacher Avatar, created by Susanto Ganguly. You may call him Sir Ganguly. How can I help you today?"
-- ✅ Hindi Avatar speaks in Hindi: "नमस्ते! मैं आपका हिंदी शिक्षक अवतार हूँ, जिसे सुशांतों गांगुली ने बनाया है। मैं आपकी कैसे मदद कर सकता हूँ?"
+This application provides an immersive learning experience through:
 
-### 🎤 **SINGLE VOICE WINDOW (INPUT ➝ OUTPUT)**
-- ✅ One voice window under the avatar that clears and accepts voice input
-- ✅ Converts itself into output display
-- ✅ Speaks the answer aloud using a deep male voice
+- **12 Specialized AI Teachers**: Computer Science, English, Biology, Physics, Chemistry, History, Geography, Hindi, Mathematics, Doctor, Engineer, and Lawyer
+- **Voice Interaction**: Speech recognition for questions, speech synthesis for responses
+- **Real-time AI Responses**: Powered by Google's Gemini 2.0 Flash model
+- **Responsive Design**: Modern UI with Tailwind CSS and glass morphism effects
+- **Error Handling**: Comprehensive error management for all edge cases
 
-### 📋 **Q/A SUMMARY WINDOW**
-- ✅ Shows when AI's response is more than 20 words
-- ✅ Contains the full Question and Answer
-- ✅ Includes Copy buttons for both Q&A
+## 🚀 Features
 
-### 🧑‍🏫 **SUBJECT AVATARS UI**
-- ✅ Display larger PNGs of avatars in responsive grid
-- ✅ User taps to activate avatar
-- ✅ Each avatar loads with their greeting and personality tone
+### Core Functionality
+- **Avatar Selection**: Choose from 12 specialized AI teachers
+- **Voice Recognition**: Speak questions naturally using browser speech API
+- **AI Responses**: Get intelligent, subject-specific answers from Gemini AI
+- **Speech Synthesis**: AI responses are spoken aloud for accessibility
+- **Code Display**: Technical content shown in syntax-highlighted code boxes
+- **Real-time Feedback**: Visual indicators for listening, speaking, and processing states
 
-### 🧠 **SMART RESPONSE SYSTEM**
-- ✅ No hard rejection of off-topic questions
-- ✅ If question is outside avatar's domain: "Interesting question! Though this isn't my subject, here's what I can share. You can also check with our [Biology/English] Teacher Avatar."
+### Technical Features
+- **Next.js 12+**: React framework with API routes
+- **Speech APIs**: Web Speech Recognition and Synthesis
+- **Gemini AI**: Google's latest AI model for responses
+- **Tailwind CSS**: Utility-first styling
+- **Responsive Design**: Mobile-first approach
+- **Error Handling**: Comprehensive error management
+- **Auto-deployment**: Vercel integration
 
-### 👤 **RESPOND TO QUESTIONS ABOUT CREATOR**
-- ✅ If user asks about "Susanto Ganguly" or "Who created you":
-- ✅ "I was created by Susanto Ganguly — a passionate educator and software developer, known as Sir Ganguly, who builds AI tools to help students learn creatively."
+## 📋 Prerequisites
 
-### 🗣️ **VOICE OUTPUT RULES**
-- ✅ Deep, calm, professional male voice (medium pace)
-- ✅ Do NOT read punctuation marks like `. , ? !`
-- ✅ But KEEP those characters in the displayed text
-- ✅ Remove and ignore symbols like `*`, `@`, `#`, `%` while speaking
+### System Requirements
+- **Node.js**: Version 16.0 or higher
+- **npm**: Version 8.0 or higher
+- **Modern Browser**: Chrome, Firefox, Safari, or Edge (for speech APIs)
 
-### 🎛️ **UI CONTROLS (ALWAYS ACTIVE)**
-- ✅ **Top Left**: "Back" button → returns to avatar list, stops voice
-- ✅ **Top Right**: "Light/Dark" toggle button
-- ✅ **Below Avatar**:
-  - **Talk Button**: Start voice input, clear text window
-  - **Stop Button**: Immediately stop voice
-  - **Start Button**: Resume the last spoken answer
+### Environment Variables
+Create a `.env.local` file in the root directory:
 
-### 🌈 **THEMED UI DESIGN (Colorful + Mobile Friendly)**
-- ✅ Vibrant, joyful background theme with animated gradients
-- ✅ Foreground cards/windows are soft-rounded, glass-like with shadows
-- ✅ Playful but clean fonts, large enough for easy reading
-- ✅ Modern, soft-edged, animated buttons on hover/tap
-- ✅ Fully mobile responsive (vertical stacking)
-- ✅ Clean and centered on desktop (horizontal spacing)
+```bash
+# Required: Gemini API Key
+GEMINI_API_KEY=your_gemini_api_key_here
 
-### 📚 **Subject-Specific Avatars (11 Total)**
-- ✅ **Computer Teacher**: Programming, algorithms, data structures, technology
-- ✅ **English Teacher**: Grammar, literature, writing, communication skills
-- ✅ **Biology Teacher**: Life sciences, anatomy, genetics, ecology
-- ✅ **Physics Teacher**: Mechanics, thermodynamics, electromagnetism, modern physics
-- ✅ **Chemistry Teacher**: Organic chemistry, inorganic chemistry, chemical reactions
-- ✅ **Geography Teacher**: Physical geography, human geography, environmental science
-- ✅ **Hindi Teacher**: Hindi grammar, literature, poetry, cultural aspects
-- ✅ **Mathematics Teacher**: Algebra, geometry, calculus, mathematical reasoning
-- ✅ **Doctor**: General health information, medical concepts, wellness advice
-- ✅ **Engineer**: Various engineering disciplines, technical solutions
-- ✅ **Lawyer**: Legal concepts, general legal principles, educational information
+# Optional: Custom configuration
+NEXT_PUBLIC_APP_NAME="AI Avatar Assistant"
+NEXT_PUBLIC_APP_VERSION="1.0.0"
+```
 
-## 🚀 Quick Start
+### Getting Gemini API Key
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with your Google account
+3. Create a new API key
+4. Copy the key to your `.env.local` file
 
-### Prerequisites
-- Node.js 16.0.0 or higher
-- Gemini API key (optional - works with mock responses)
+## 📁 Folder Structure
 
-### Local Development
+```
+Avatar_vercel/
+├── components/                 # React components
+│   ├── AvatarSelection/       # Page 1 components
+│   │   ├── AvatarGrid.js     # Grid layout for avatars
+│   │   ├── AvatarTile.js     # Individual avatar tiles
+│   │   └── LoadingScreen.js  # Initial loading screen
+│   ├── ChatInterface/        # Page 2 components
+│   │   ├── AvatarDisplay.js  # Avatar display with animations
+│   │   ├── TextDisplay.js    # Text and interim transcript display
+│   │   └── CodeBox.js        # Code snippet display
+│   ├── Navigation/           # Navigation components
+│   │   └── BackButton.js     # Back navigation button
+│   └── VoiceControls/        # Voice interaction controls
+│       └── VoiceControls.js  # Talk/Stop buttons and status
+├── hooks/                    # Custom React hooks
+│   ├── useSpeechRecognition.js  # Speech recognition logic
+│   └── useSpeechSynthesis.js    # Speech synthesis logic
+├── lib/                      # Utility libraries
+│   └── avatars.js           # Avatar configuration data
+├── pages/                    # Next.js pages
+│   ├── api/                 # API routes
+│   │   └── chat.js          # Gemini AI integration
+│   ├── _app.js              # App wrapper
+│   ├── index.js             # Page 1: Avatar selection
+│   └── [avatar].js          # Page 2: Chat interface
+├── public/                   # Static assets
+│   └── avatars/             # Avatar images
+├── styles/                   # Global styles
+│   └── globals.css          # Tailwind and custom CSS
+├── .env.local               # Environment variables
+├── next.config.js           # Next.js configuration
+├── package.json             # Dependencies and scripts
+├── tailwind.config.js       # Tailwind CSS configuration
+└── vercel.json              # Vercel deployment config
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/susanto68/AI-Avatar.git
-   cd AI-Avatar
-   ```
+## 🛠️ Installation & Setup
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd Avatar_vercel
+```
 
-3. **Set up environment variables**
-   ```bash
-   # Create .env file
-   echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
-   ```
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
+### 3. Configure Environment
+```bash
+# Copy environment template
+cp .env.example .env.local
 
-5. **Open your browser**
-   ```
-   http://localhost:3000
-   ```
+# Edit with your API key
+nano .env.local
+```
 
-## 🌐 **Render Deployment**
+### 4. Run Development Server
+```bash
+npm run dev
+```
 
-### Step 1: Prepare Your Repository
-1. Ensure your code is pushed to GitHub
-2. Make sure all files are committed and pushed
+The application will be available at `http://localhost:3000`
 
-### Step 2: Deploy to Render
+## 🚀 Development Commands
 
-1. **Go to Render Dashboard**
-   - Visit [render.com](https://render.com)
-   - Sign up/Login with your GitHub account
+### Development
+```bash
+# Start development server
+npm run dev
 
-2. **Create New Web Service**
-   - Click "New +" button
-   - Select "Web Service"
-   - Connect your GitHub repository
+# Start with specific port
+npm run dev -- -p 3001
+```
 
-3. **Configure the Service**
-   - **Name**: `ai-avatar-assistant` (or your preferred name)
-   - **Environment**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Root Directory**: Leave empty (or specify if needed)
+### Production Build
+```bash
+# Build for production
+npm run build
 
-4. **Set Environment Variables**
-   - Click on "Environment" tab
-   - Add the following variables:
-     ```
-     GEMINI_API_KEY=your_gemini_api_key_here
-     NODE_ENV=production
-     PORT=10000
-     ```
+# Start production server
+npm start
 
-5. **Deploy**
-   - Click "Create Web Service"
-   - Render will automatically build and deploy your app
-   - Your app will be available at: `https://your-app-name.onrender.com`
+# Export static files
+npm run export
+```
 
-### Step 3: Custom Domain (Optional)
-1. Go to your service settings
-2. Click "Custom Domains"
-3. Add your domain and follow the DNS instructions
+### Code Quality
+```bash
+# Lint code
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+```
+
+## 🌐 Deployment
+
+### Vercel Auto-Deployment
+
+This project is configured for automatic deployment on Vercel:
+
+1. **Connect Repository**: Link your GitHub repository to Vercel
+2. **Environment Variables**: Add `GEMINI_API_KEY` in Vercel dashboard
+3. **Auto-Deploy**: Every push to main branch triggers deployment
+4. **Preview Deployments**: Pull requests get preview URLs
+
+### Manual Deployment
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Deploy to production
+vercel --prod
+```
+
+### Environment Variables on Vercel
+1. Go to Vercel Dashboard → Your Project → Settings
+2. Navigate to "Environment Variables"
+3. Add `GEMINI_API_KEY` with your API key
+4. Redeploy if needed
+
+## 🧪 Testing Instructions
+
+### Speech Recognition Testing
+
+#### 1. Microphone Permissions
+```bash
+# Test microphone access
+1. Open browser developer tools (F12)
+2. Go to Console tab
+3. Click "Talk" button
+4. Allow microphone permissions when prompted
+5. Verify "Listening..." status appears
+```
+
+#### 2. Speech Recognition
+```bash
+# Test speech input
+1. Click "Talk" button
+2. Speak clearly: "What is a variable in programming?"
+3. Click "Stop Listening" or wait for auto-stop
+4. Verify transcript appears in text box
+5. Check API response and speech synthesis
+```
+
+#### 3. Error Scenarios
+```bash
+# Test no speech detected
+1. Click "Talk" button
+2. Stay silent for 10+ seconds
+3. Verify "No speech detected" error appears
+
+# Test permission denied
+1. Block microphone in browser settings
+2. Click "Talk" button
+3. Verify permission error message
+```
+
+### API Testing
+
+#### 1. Basic API Call
+```bash
+# Test API endpoint
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is JavaScript?",
+    "avatarType": "computer-teacher"
+  }'
+```
+
+#### 2. Expected Response Format
+```json
+{
+  "part1": "JavaScript is a programming language...",
+  "part2": "```javascript\nconsole.log('Hello World');\n```",
+  "avatarType": "computer-teacher",
+  "success": true
+}
+```
+
+#### 3. Error Testing
+```bash
+# Test missing prompt
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"avatarType": "computer-teacher"}'
+
+# Test invalid avatar
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello", "avatarType": "invalid-avatar"}'
+```
+
+### Browser Compatibility Testing
+
+#### Supported Browsers
+- ✅ Chrome 66+
+- ✅ Firefox 60+
+- ✅ Safari 14.1+
+- ✅ Edge 79+
+
+#### Test Matrix
+```bash
+# Test speech recognition
+1. Chrome: Full support
+2. Firefox: Full support
+3. Safari: Limited support (HTTPS required)
+4. Edge: Full support
+
+# Test speech synthesis
+1. All browsers: Full support
+2. Voice quality may vary
+```
+
+### Performance Testing
+
+#### Load Testing
+```bash
+# Test avatar selection page
+1. Measure initial load time
+2. Test avatar grid responsiveness
+3. Verify welcome audio plays
+
+# Test chat interface
+1. Measure API response time
+2. Test speech recognition latency
+3. Verify UI responsiveness during processing
+```
 
 ## 🔧 Configuration
 
-### Environment Variables
-- `GEMINI_API_KEY`: Your Gemini API key for AI responses
-- `NODE_ENV`: Environment (development/production)
-- `PORT`: Server port (Render uses 10000 by default)
+### Avatar Configuration
+Edit `lib/avatars.js` to modify avatar settings:
+
+```javascript
+export const AVATAR_CONFIG = {
+  'computer-teacher': {
+    name: 'Computer Teacher',
+    image: '/avatars/computer-teacher.png',
+    systemPrompt: 'You are a knowledgeable computer science teacher...',
+    domain: 'Programming & Technology',
+    greeting: 'Hello! I\'m your Computer Teacher...',
+    emoji: '💻'
+  }
+  // Add more avatars...
+}
+```
+
+### Speech Configuration
+Modify speech settings in hooks:
+
+```javascript
+// useSpeechSynthesis.js
+utterance.rate = 0.9        // Speech rate
+utterance.pitch = 1.0       // Voice pitch
+utterance.volume = 0.8      // Volume level
+
+// useSpeechRecognition.js
+recognition.lang = 'en-US'  // Language
+recognition.continuous = false  // Single utterance
+```
 
 ### API Configuration
-The app uses the Gemini API through OpenAI-compatible endpoints:
-- Base URL: `https://generativelanguage.googleapis.com/v1beta/openai`
-- Model: `gemini-2.5-flash`
-- Temperature: 0.6
-- Max Tokens: 1100
+Adjust API settings in `pages/api/chat.js`:
 
-## 🏗️ Project Structure
+```javascript
+// Timeout settings
+const API_TIMEOUT = 30000  // 30 seconds
 
-```
-Avatar/
-├── index.html              # Main HTML file with single voice window
-├── style.css               # Colorful CSS with glass effects
-├── main.js                 # Enhanced JavaScript with greeting voice
-├── server.js               # Express server setup
-├── package.json            # Dependencies and scripts
-├── vercel.json             # Vercel deployment config
-├── api/
-│   ├── chat.js             # API endpoint for AI responses
-│   └── system_prompt.txt   # AI system prompt template
-├── assets/
-│   └── avatars/            # Avatar PNG images
-│       ├── computer-teacher.png
-│       ├── english-teacher.png
-│       ├── biology-teacher.png
-│       ├── physics-teacher.png
-│       ├── chemistry-teacher.png
-│       ├── geography-teacher.png
-│       ├── hindi-teacher.png
-│       ├── mathematics-teacher.png
-│       ├── doctor.png
-│       ├── engineer.png
-│       └── lawyer.png
-└── README.md               # This file
+// Gemini model settings
+generationConfig: {
+  temperature: 0.7,
+  topK: 40,
+  topP: 0.95,
+  maxOutputTokens: 1000
+}
 ```
 
-## 🎨 Customization
+## 🐛 Troubleshooting
 
-### Adding New Avatars
-1. Add avatar image to `assets/avatars/`
-2. Update `AVATAR_CONFIG` in `main.js`
-3. Add domain keywords in `api/chat.js`
-4. Update HTML avatar grid
+### Common Issues
 
-### Styling
-- CSS variables for easy theming
-- Responsive design with mobile-first approach
-- Dark/light theme support
-- Custom animations and transitions
+#### 1. Speech Recognition Not Working
+```bash
+# Check browser support
+- Ensure HTTPS in production
+- Check microphone permissions
+- Verify browser compatibility
 
-## 🌐 Other Deployment Options
+# Debug steps
+1. Open browser console
+2. Check for speech recognition errors
+3. Test microphone in browser settings
+```
 
-### Vercel (Recommended)
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push
+#### 2. API Errors
+```bash
+# Check environment variables
+- Verify GEMINI_API_KEY is set
+- Check API key validity
+- Ensure proper format
 
-### Replit
-1. Import the repository
-2. Run `npm start`
-3. Set environment variables in Secrets
+# Debug steps
+1. Check Vercel environment variables
+2. Test API endpoint directly
+3. Verify network connectivity
+```
 
-### Cyclic.sh
-1. Connect repository
-2. Set environment variables
-3. Deploy automatically
+#### 3. Build Errors
+```bash
+# Clear cache and reinstall
+rm -rf node_modules
+rm -rf .next
+npm install
+npm run build
+```
 
-## 🔒 Security Features
+### Error Messages Reference
 
-- Input validation and sanitization
-- Offensive content filtering
-- Secure API key handling
-- CORS and security headers
-- Rate limiting considerations
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Microphone access denied" | Browser permissions | Allow microphone in browser settings |
+| "No speech detected" | No audio input | Speak louder or check microphone |
+| "Request timeout" | API slow response | Try shorter question or check network |
+| "Avatar not found" | Invalid avatar type | Select valid avatar from list |
+| "AI service unavailable" | Gemini API issue | Check API key and service status |
 
-## 📱 Mobile Features
+## 📝 Contributing
 
-- Touch-optimized interface
-- Haptic feedback support
-- Swipe gestures for navigation
-- PWA capabilities
-- Offline functionality
-- Mobile-optimized voice recognition
-
-## 🤝 Contributing
-
+### Development Workflow
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create feature branch: `git checkout -b feature/new-feature`
+3. Make changes and test thoroughly
+4. Commit changes: `git commit -m 'Add new feature'`
+5. Push to branch: `git push origin feature/new-feature`
+6. Create pull request
+
+### Code Standards
+- Use ESLint configuration
+- Follow React best practices
+- Add error handling for new features
+- Test speech and API functionality
+- Update documentation for changes
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is created by Susanto Ganguly (Sir Ganguly) for educational purposes.
 
-## 👨‍🏫 About the Creator
+## 🤝 Support
 
-**Susanto Ganguly** (Sir Ganguly) is the creator and designer of this AI Avatar Assistant platform. The system is designed to provide an engaging, educational experience for students across various subjects.
-
-## 🆘 Support
-
-For support or questions:
-- Check the documentation
-- Review the code comments
-- Create an issue on GitHub
-- Contact the development team
-
-## 🔄 Updates
-
-### Version 2.0.0 (Current)
-- ✨ Colorful, vibrant UI with animated gradients
-- 🎙️ Greeting voice on avatar load
-- 🎤 Single voice window (input → output)
-- 📋 Q/A summary window for long responses
-- 🧠 Smart response system with domain validation
-- 👤 Creator attribution responses
-- 🗣️ Deep male voice with punctuation filtering
-- 🎛️ Enhanced voice controls (Talk/Stop/Start)
-- 🌈 Glass-like effects and modern animations
-- 📱 Mobile-first responsive design
-- 🚀 Render deployment ready
-
-### Version 1.0.0
-- Initial release with 11 subject avatars
-- Voice input/output functionality
-- Mobile-first responsive design
-- Content validation and filtering
-- Sir Ganguly attribution throughout
+For issues and questions:
+1. Check troubleshooting section
+2. Review error messages reference
+3. Test with different browsers
+4. Verify environment configuration
 
 ---
 
-**Created with ❤️ by Susanto Ganguly (Sir Ganguly)**
+**Created by Susanto Ganguly (Sir Ganguly)**  
+*AI Avatar Assistant - Interactive Learning Platform*
