@@ -100,6 +100,12 @@ export default async function handler(req, res) {
     // Use avatarType if avatar is not provided (for backward compatibility)
     const selectedAvatar = avatar || avatarType;
     
+    // DEBUG: Log incoming request
+    console.log('=== API DEBUG START ===');
+    console.log('Incoming request:', { message, avatar, avatarType, selectedAvatar });
+    console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
+    console.log('GEMINI_API_KEY length:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0);
+    
     // Validate required fields
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ 
@@ -117,13 +123,17 @@ export default async function handler(req, res) {
 
     // Validate input
     if (!validateInput(message)) {
+      console.log('DEBUG: Input validation failed');
       return res.status(200).json({ 
         reply: "I'm here to help positively. Please ask constructive questions only." 
       });
     }
 
     // Check if question is in avatar's domain
-    if (!isDomainQuestion(message, selectedAvatar)) {
+    const isDomain = isDomainQuestion(message, selectedAvatar);
+    console.log('DEBUG: Domain question check:', { message, selectedAvatar, isDomain });
+    
+    if (!isDomain) {
       const domainKeywords = {
         'computer-teacher': ['programming', 'code', 'computer', 'software', 'algorithm', 'data structure', 'technology', 'coding', 'developer', 'program', 'app', 'website', 'database', 'api', 'framework', 'java', 'python', 'c++', 'c#', 'javascript', 'html', 'css', 'php', 'ruby', 'swift', 'kotlin', 'go', 'rust', 'scala', 'perl', 'bash', 'sql', 'typescript', 'react', 'angular', 'vue', 'node.js', 'django', 'flask', 'spring', 'dotnet', 'android', 'ios', 'machine learning', 'artificial intelligence', 'data science', 'web development', 'mobile development', 'game development', 'cybersecurity', 'cloud computing', 'devops', 'docker', 'kubernetes', 'git', 'agile', 'scrum'],
         'english-teacher': ['grammar', 'english', 'language', 'writing', 'literature', 'poetry', 'essay', 'vocabulary', 'sentence', 'paragraph', 'story', 'novel', 'poem'],
@@ -145,6 +155,8 @@ export default async function handler(req, res) {
       // Safely use replace method
       const avatarName = selectedAvatar ? selectedAvatar.replace('-teacher', ' teacher').replace('-', ' ') : selectedAvatar;
       
+      console.log('DEBUG: Returning domain mismatch response');
+      console.log('=== API DEBUG END ===');
       return res.status(200).json({ 
         reply: `I can teach you about ${keywordList}. Please ask me questions related to these topics!` 
       });
@@ -152,46 +164,64 @@ export default async function handler(req, res) {
 
     // Check if Gemini API key is available
     if (!process.env.GEMINI_API_KEY) {
+      console.log('DEBUG: No GEMINI_API_KEY found, using mock response');
       // Provide mock responses based on avatar type
       const mockResponses = getMockResponses(selectedAvatar);
       const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
+      console.log('DEBUG: Mock response selected:', randomResponse.substring(0, 100) + '...');
+      console.log('=== API DEBUG END ===');
       return res.status(200).json({ reply: randomResponse });
     }
 
-    // Try to use OpenAI with Gemini base URL
-    let OpenAI;
     try {
-      const openaiModule = await import('openai');
-      OpenAI = openaiModule.default;
-    } catch (importError) {
-      console.error('Failed to import OpenAI:', importError);
-      // Fallback to mock responses on import error
+      console.log('DEBUG: Attempting to call Gemini API...');
+      // Try to use OpenAI with Gemini base URL
+      let OpenAI;
+      try {
+        const openaiModule = await import('openai');
+        OpenAI = openaiModule.default;
+      } catch (importError) {
+        console.error('Failed to import OpenAI:', importError);
+        // Fallback to mock responses on import error
+        const mockResponses = getMockResponses(selectedAvatar);
+        const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
+        return res.status(200).json({ reply: randomResponse });
+      }
+      
+      // Initialize OpenAI client only when API key is available
+      const openai = new OpenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai'
+      });
+
+      // Use provided system prompt or fallback to template
+      const finalSystemPrompt = systemPrompt || SYSTEM_PROMPT_TEMPLATE;
+      
+      const resp = await openai.chat.completions.create({
+        model: 'gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: finalSystemPrompt },
+          { role: 'user', content: message.trim() }
+        ],
+        temperature: 0.6,
+        max_tokens: 1100
+      });
+
+      const aiResponse = resp.choices[0]?.message?.content?.trim() || 'I apologize, but I couldn\'t generate a response at this time.';
+      console.log('DEBUG: AI response generated successfully');
+      console.log('=== API DEBUG END ===');
+      res.status(200).json({ reply: aiResponse });
+      
+    } catch (err) {
+      console.error('AI service error:', err);
+      
+      // Fallback to mock responses on API error
       const mockResponses = getMockResponses(selectedAvatar);
       const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-      return res.status(200).json({ reply: randomResponse });
+      console.log('DEBUG: Using fallback mock response due to AI service error');
+      console.log('=== API DEBUG END ===');
+      res.status(200).json({ reply: randomResponse });
     }
-    
-    // Initialize OpenAI client only when API key is available
-    const openai = new OpenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai'
-    });
-
-    // Use provided system prompt or fallback to template
-    const finalSystemPrompt = systemPrompt || SYSTEM_PROMPT_TEMPLATE;
-    
-    const resp = await openai.chat.completions.create({
-      model: 'gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: finalSystemPrompt },
-        { role: 'user', content: message.trim() }
-      ],
-      temperature: 0.6,
-      max_tokens: 1100
-    });
-
-    const aiResponse = resp.choices[0]?.message?.content?.trim() || 'I apologize, but I couldn\'t generate a response at this time.';
-    res.status(200).json({ reply: aiResponse });
     
   } catch (err) {
     console.error('API Error:', err);
