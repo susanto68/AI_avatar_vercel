@@ -26,6 +26,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -42,4 +43,10 @@ style.css
 sw.js
 test.html
 test-history-teacher.js
-assets/
+test-all-avatars.js
+test-avatars.js
+test-avatar-display.html
+"ion 2.0.0 Colorful AI Avatar Assistant"
+"tat -an findstr 3000"
+tatus
+sirganguly.jpg
