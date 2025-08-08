@@ -1,3 +1,3 @@
-[33m599f82e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m  Major Update: Enhanced AI Avatar Assistant with Sir Ganguly Attribution
-[33m71585d3[m Fix Vercel routing configuration for better deployment
-[33mbd9795b[m Add .vercelignore and force fresh deployment
+[33m8353a33[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add assets/avatars folder and update .gitignore to include avatar assets
+[33m63bd413[m Update project structure and add avatar assets for Next.js deployment
+[33m9d08d09[m Full upload

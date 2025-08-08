@@ -10,20 +10,55 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Log the incoming request for debugging
+    console.log('API Request received:', {
+      method: req.method,
+      headers: req.headers['content-type'],
+      body: req.body
+    })
+
     const { prompt, avatarType } = req.body || {}
 
-    // Validate required fields
-    if (!prompt || typeof prompt !== 'string') {
+    // Enhanced validation with detailed error messages
+    if (!req.body) {
       return res.status(400).json({ 
-        error: 'Missing or invalid prompt. Please provide a valid prompt string.',
+        error: 'Request body is missing. Please provide a valid JSON payload.',
+        received: null
+      })
+    }
+
+    if (!prompt) {
+      return res.status(400).json({ 
+        error: 'Missing prompt field. Please provide a prompt in the request body.',
         received: { prompt, avatarType }
       })
     }
 
-    if (!avatarType || typeof avatarType !== 'string') {
+    if (typeof prompt !== 'string') {
       return res.status(400).json({ 
-        error: 'Missing or invalid avatarType. Please provide a valid avatar type.',
+        error: 'Invalid prompt type. Prompt must be a string.',
+        received: { prompt: typeof prompt, avatarType }
+      })
+    }
+
+    if (prompt.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'Prompt cannot be empty. Please provide a valid question or message.',
         received: { prompt, avatarType }
+      })
+    }
+
+    if (!avatarType) {
+      return res.status(400).json({ 
+        error: 'Missing avatarType field. Please provide an avatar type in the request body.',
+        received: { prompt, avatarType }
+      })
+    }
+
+    if (typeof avatarType !== 'string') {
+      return res.status(400).json({ 
+        error: 'Invalid avatarType. Avatar type must be a string.',
+        received: { prompt, avatarType: typeof avatarType }
       })
     }
 
@@ -31,7 +66,8 @@ export default async function handler(req, res) {
     const avatarConfig = AVATAR_CONFIG[avatarType]
     if (!avatarConfig) {
       return res.status(400).json({ 
-        error: 'Invalid avatar type. Please select a valid avatar.',
+        error: `Invalid avatar type: "${avatarType}". Please select a valid avatar.`,
+        availableAvatars: Object.keys(AVATAR_CONFIG),
         received: { avatarType }
       })
     }
@@ -45,6 +81,13 @@ export default async function handler(req, res) {
         fallback: true
       })
     }
+
+    // Log successful validation
+    console.log('API Request validated successfully:', {
+      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+      avatarType,
+      avatarName: avatarConfig.name
+    })
 
     // Construct the combined prompt
     const combinedPrompt = `${avatarConfig.systemPrompt}
@@ -147,6 +190,12 @@ If no code is needed, leave PART2 empty.`
     if (!part1) {
       part1 = aiResponse
     }
+
+    console.log('API Response generated successfully:', {
+      part1Length: part1.length,
+      part2Length: part2.length,
+      avatarType
+    })
 
     return res.status(200).json({
       part1,

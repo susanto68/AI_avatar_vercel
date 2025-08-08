@@ -141,6 +141,31 @@ export default function AvatarChat() {
 
   // Real API call function with comprehensive error handling
   const handleApiCall = async (message) => {
+    // Frontend validation
+    if (!message || typeof message !== 'string') {
+      const errorMessage = 'Please provide a valid question or message.'
+      setCurrentText(errorMessage)
+      setIsSpeaking(true)
+      speakText(errorMessage, () => setIsSpeaking(false))
+      return
+    }
+
+    if (message.trim().length === 0) {
+      const errorMessage = 'Please provide a valid question or message.'
+      setCurrentText(errorMessage)
+      setIsSpeaking(true)
+      speakText(errorMessage, () => setIsSpeaking(false))
+      return
+    }
+
+    if (!avatar || typeof avatar !== 'string') {
+      const errorMessage = 'Avatar configuration error. Please go back and select a valid avatar.'
+      setCurrentText(errorMessage)
+      setIsSpeaking(true)
+      speakText(errorMessage, () => setIsSpeaking(false))
+      return
+    }
+
     setIsProcessing(true)
     setApiError(null)
     setCodeContent('')
@@ -175,14 +200,23 @@ export default function AvatarChat() {
       if (!response.ok) {
         let errorMessage = 'Server error occurred. Please try again.'
         
-        if (response.status === 400) {
-          errorMessage = 'Invalid request. Please check your input and try again.'
-        } else if (response.status === 404) {
-          errorMessage = 'Avatar not found. Please select a valid avatar.'
-        } else if (response.status === 500) {
-          errorMessage = 'Server is temporarily unavailable. Please try again later.'
-        } else if (response.status === 503) {
-          errorMessage = 'AI service is currently busy. Please try again in a moment.'
+        // Try to get detailed error message from response
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based messages
+          if (response.status === 400) {
+            errorMessage = 'Invalid request. Please check your input and try again.'
+          } else if (response.status === 404) {
+            errorMessage = 'Avatar not found. Please select a valid avatar.'
+          } else if (response.status === 500) {
+            errorMessage = 'Server is temporarily unavailable. Please try again later.'
+          } else if (response.status === 503) {
+            errorMessage = 'AI service is currently busy. Please try again in a moment.'
+          }
         }
         
         throw new Error(errorMessage)
