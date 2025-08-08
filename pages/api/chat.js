@@ -1,8 +1,19 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
 
 export default async function handler(req, res) {
+  // Enhanced logging for debugging
+  console.log('=== API REQUEST DEBUG ===')
+  console.log('Method:', req.method)
+  console.log('URL:', req.url)
+  console.log('Headers:', JSON.stringify(req.headers, null, 2))
+  console.log('Body:', JSON.stringify(req.body, null, 2))
+  console.log('Environment check - GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY)
+  console.log('Environment check - GEMINI_API_KEY length:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0)
+  console.log('========================')
+
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log('❌ Method not allowed:', req.method)
     return res.status(405).json({ 
       error: 'Method not allowed. Only POST requests are accepted.',
       method: req.method 
@@ -21,6 +32,7 @@ export default async function handler(req, res) {
 
     // Enhanced validation with detailed error messages
     if (!req.body) {
+      console.log('❌ Request body is missing')
       return res.status(400).json({ 
         error: 'Request body is missing. Please provide a valid JSON payload.',
         received: null
@@ -28,6 +40,7 @@ export default async function handler(req, res) {
     }
 
     if (!prompt) {
+      console.log('❌ Missing prompt field')
       return res.status(400).json({ 
         error: 'Missing prompt field. Please provide a prompt in the request body.',
         received: { prompt, avatarType }
@@ -35,6 +48,7 @@ export default async function handler(req, res) {
     }
 
     if (typeof prompt !== 'string') {
+      console.log('❌ Invalid prompt type:', typeof prompt)
       return res.status(400).json({ 
         error: 'Invalid prompt type. Prompt must be a string.',
         received: { prompt: typeof prompt, avatarType }
@@ -42,6 +56,7 @@ export default async function handler(req, res) {
     }
 
     if (prompt.trim().length === 0) {
+      console.log('❌ Empty prompt')
       return res.status(400).json({ 
         error: 'Prompt cannot be empty. Please provide a valid question or message.',
         received: { prompt, avatarType }
@@ -49,6 +64,7 @@ export default async function handler(req, res) {
     }
 
     if (!avatarType) {
+      console.log('❌ Missing avatarType field')
       return res.status(400).json({ 
         error: 'Missing avatarType field. Please provide an avatar type in the request body.',
         received: { prompt, avatarType }
@@ -56,6 +72,7 @@ export default async function handler(req, res) {
     }
 
     if (typeof avatarType !== 'string') {
+      console.log('❌ Invalid avatarType:', typeof avatarType)
       return res.status(400).json({ 
         error: 'Invalid avatarType. Avatar type must be a string.',
         received: { prompt, avatarType: typeof avatarType }
@@ -65,6 +82,7 @@ export default async function handler(req, res) {
     // Get avatar configuration
     const avatarConfig = AVATAR_CONFIG[avatarType]
     if (!avatarConfig) {
+      console.log('❌ Invalid avatar type:', avatarType)
       return res.status(400).json({ 
         error: `Invalid avatar type: "${avatarType}". Please select a valid avatar.`,
         availableAvatars: Object.keys(AVATAR_CONFIG),
@@ -75,12 +93,14 @@ export default async function handler(req, res) {
     // Check for Gemini API key
     const geminiApiKey = process.env.GEMINI_API_KEY
     if (!geminiApiKey) {
-      console.error('GEMINI_API_KEY not found in environment variables')
+      console.error('❌ GEMINI_API_KEY not found in environment variables')
       return res.status(500).json({ 
         error: 'AI service configuration error. Please try again later.',
         fallback: true
       })
     }
+
+    console.log('✅ GEMINI_API_KEY found, length:', geminiApiKey.length)
 
     // Log successful validation
     console.log('API Request validated successfully:', {
@@ -99,6 +119,8 @@ PART1: [Your main response here - this will be spoken and displayed as text]
 PART2: [Code examples or technical content here - this will be displayed in a code box]
 
 If no code is needed, leave PART2 empty.`
+
+    console.log('🔗 Calling Gemini API...')
 
     // Call Gemini API
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
@@ -145,7 +167,7 @@ If no code is needed, leave PART2 empty.`
 
     if (!geminiResponse.ok) {
       const errorData = await geminiResponse.json().catch(() => ({}))
-      console.error('Gemini API error:', errorData)
+      console.error('❌ Gemini API error:', errorData)
       throw new Error(`Gemini API error: ${geminiResponse.status}`)
     }
 
@@ -153,6 +175,7 @@ If no code is needed, leave PART2 empty.`
     const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
     if (!aiResponse) {
+      console.error('❌ No response received from AI service')
       throw new Error('No response received from AI service')
     }
 
@@ -205,7 +228,7 @@ If no code is needed, leave PART2 empty.`
     })
 
   } catch (error) {
-    console.error('API Error:', error)
+    console.error('❌ API Error:', error)
     
     // Return fallback response for errors
     const { avatarType } = req.body || {}

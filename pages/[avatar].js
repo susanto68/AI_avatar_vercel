@@ -183,15 +183,21 @@ export default function AvatarChat() {
         }, 30000)
       })
 
+      const requestBody = {
+        prompt: message,
+        avatarType: avatar
+      }
+      
+      console.log('🔗 Frontend: Making API request to /api/chat')
+      console.log('🔗 Frontend: Request body:', requestBody)
+      
       const fetchPromise = fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: message,
-          avatarType: avatar
-        })
+        body: JSON.stringify(requestBody)
       })
 
       // Race between fetch and timeout
