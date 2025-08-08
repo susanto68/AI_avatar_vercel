@@ -1,12 +1,55 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
 
+// Helper function to parse JSON body with multiple fallbacks
+const parseBody = (req) => {
+  // Case 1: Body is already an object (parsed by Next.js)
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    console.log('✅ Body is already an object')
+    return req.body
+  }
+  
+  // Case 2: Body is a string that needs parsing
+  if (typeof req.body === 'string') {
+    try {
+      console.log('✅ Parsing body string as JSON')
+      return JSON.parse(req.body)
+    } catch (e) {
+      console.log('❌ Failed to parse body string as JSON:', req.body)
+      return null
+    }
+  }
+  
+  // Case 3: Body is an array (unusual but possible)
+  if (Array.isArray(req.body)) {
+    console.log('⚠️ Body is an array, trying to parse first element')
+    try {
+      return typeof req.body[0] === 'string' ? JSON.parse(req.body[0]) : req.body[0]
+    } catch (e) {
+      console.log('❌ Failed to parse array body')
+      return null
+    }
+  }
+  
+  // Case 4: Body is undefined or null
+  if (req.body === undefined || req.body === null) {
+    console.log('❌ Body is undefined or null')
+    return null
+  }
+  
+  // Case 5: Unknown body type
+  console.log('❌ Unknown body type:', typeof req.body, req.body)
+  return null
+}
+
 export default async function handler(req, res) {
   // Enhanced logging for debugging
   console.log('=== API REQUEST DEBUG ===')
   console.log('Method:', req.method)
   console.log('URL:', req.url)
-  console.log('Headers:', JSON.stringify(req.headers, null, 2))
-  console.log('Body:', JSON.stringify(req.body, null, 2))
+  console.log('Content-Type:', req.headers['content-type'])
+  console.log('Raw Body:', req.body)
+  console.log('Body Type:', typeof req.body)
+  console.log('Body Length:', req.body ? (typeof req.body === 'string' ? req.body.length : 'object') : 'null')
   console.log('Environment check - GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY)
   console.log('Environment check - GEMINI_API_KEY length:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0)
   console.log('========================')
@@ -21,21 +64,28 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Parse the request body
+    const parsedBody = parseBody(req)
+    console.log('Parsed Body:', parsedBody)
+    
     // Log the incoming request for debugging
     console.log('API Request received:', {
       method: req.method,
       headers: req.headers['content-type'],
-      body: req.body
+      rawBody: req.body,
+      parsedBody: parsedBody
     })
 
-    const { prompt, avatarType } = req.body || {}
+    const { prompt, avatarType } = parsedBody || {}
 
     // Enhanced validation with detailed error messages
-    if (!req.body) {
-      console.log('❌ Request body is missing')
+    if (!parsedBody) {
+      console.log('❌ Request body is missing or invalid')
       return res.status(400).json({ 
-        error: 'Request body is missing. Please provide a valid JSON payload.',
-        received: null
+        error: 'Request body is missing or invalid. Please provide a valid JSON payload.',
+        received: null,
+        rawBody: req.body,
+        bodyType: typeof req.body
       })
     }
 
@@ -43,7 +93,9 @@ export default async function handler(req, res) {
       console.log('❌ Missing prompt field')
       return res.status(400).json({ 
         error: 'Missing prompt field. Please provide a prompt in the request body.',
-        received: { prompt, avatarType }
+        received: { prompt, avatarType },
+        rawBody: req.body,
+        parsedBody: parsedBody
       })
     }
 
@@ -51,7 +103,9 @@ export default async function handler(req, res) {
       console.log('❌ Invalid prompt type:', typeof prompt)
       return res.status(400).json({ 
         error: 'Invalid prompt type. Prompt must be a string.',
-        received: { prompt: typeof prompt, avatarType }
+        received: { prompt: typeof prompt, avatarType },
+        rawBody: req.body,
+        parsedBody: parsedBody
       })
     }
 
@@ -59,7 +113,9 @@ export default async function handler(req, res) {
       console.log('❌ Empty prompt')
       return res.status(400).json({ 
         error: 'Prompt cannot be empty. Please provide a valid question or message.',
-        received: { prompt, avatarType }
+        received: { prompt, avatarType },
+        rawBody: req.body,
+        parsedBody: parsedBody
       })
     }
 
@@ -67,7 +123,9 @@ export default async function handler(req, res) {
       console.log('❌ Missing avatarType field')
       return res.status(400).json({ 
         error: 'Missing avatarType field. Please provide an avatar type in the request body.',
-        received: { prompt, avatarType }
+        received: { prompt, avatarType },
+        rawBody: req.body,
+        parsedBody: parsedBody
       })
     }
 
@@ -75,7 +133,9 @@ export default async function handler(req, res) {
       console.log('❌ Invalid avatarType:', typeof avatarType)
       return res.status(400).json({ 
         error: 'Invalid avatarType. Avatar type must be a string.',
-        received: { prompt, avatarType: typeof avatarType }
+        received: { prompt, avatarType: typeof avatarType },
+        rawBody: req.body,
+        parsedBody: parsedBody
       })
     }
 
