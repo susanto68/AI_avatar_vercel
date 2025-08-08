@@ -16,6 +16,7 @@ IMPORTANT GUIDELINES:
 13. Use simple, straightforward language that's easy to follow
 14. Break down complex concepts into smaller, digestible parts
 15. Provide step-by-step explanations when possible
+16. Always suggest related articles and relevant YouTube videos that students can explore to learn more about the topic
 
 AVATAR-SPECIFIC PROMPTS:
 

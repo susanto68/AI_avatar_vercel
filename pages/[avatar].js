@@ -4,9 +4,12 @@ import Head from 'next/head'
 import { AVATAR_CONFIG } from '../lib/avatars'
 import { initSynth, speakText, stopSpeaking, testSpeech, getSpeechStatus } from '../lib/speech'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
+import { generateContentSuggestions } from '../lib/contentSuggestions'
 import AvatarDisplay from '../components/ChatInterface/AvatarDisplay'
 import TextDisplay from '../components/ChatInterface/TextDisplay'
 import CodeBox from '../components/ChatInterface/CodeBox'
+import ArticleCarousel from '../components/ChatInterface/ArticleCarousel'
+import YouTubeVideos from '../components/ChatInterface/YouTubeVideos'
 import VoiceControls from '../components/VoiceControls/VoiceControls'
 import BackButton from '../components/Navigation/BackButton'
 
@@ -21,6 +24,8 @@ export default function AvatarChat() {
   const [apiError, setApiError] = useState(null)
   const [noSpeechDetected, setNoSpeechDetected] = useState(false)
   const [timeoutError, setTimeoutError] = useState(false)
+  const [relatedArticles, setRelatedArticles] = useState([])
+  const [relatedVideos, setRelatedVideos] = useState([])
   const greetingTimeoutRef = useRef(null)
   const speechTimeoutRef = useRef(null)
   const apiTimeoutRef = useRef(null)
@@ -169,6 +174,8 @@ export default function AvatarChat() {
     setIsProcessing(true)
     setApiError(null)
     setCodeContent('')
+    setRelatedArticles([])
+    setRelatedVideos([])
     setTimeoutError(false)
     
     // Stop any ongoing speech when starting new API call
@@ -251,6 +258,11 @@ export default function AvatarChat() {
       if (data.part2) {
         setCodeContent(data.part2)
       }
+
+      // Generate content suggestions based on the question and avatar type
+      const suggestions = generateContentSuggestions(message, avatar)
+      setRelatedArticles(suggestions.articles)
+      setRelatedVideos(suggestions.videos)
 
     } catch (error) {
       console.error('API call error:', error)
@@ -525,6 +537,15 @@ export default function AvatarChat() {
             </div>
           )}
         </div>
+
+        {/* Content Suggestions */}
+        {relatedArticles.length > 0 && (
+          <ArticleCarousel articles={relatedArticles} />
+        )}
+        
+        {relatedVideos.length > 0 && (
+          <YouTubeVideos videos={relatedVideos} />
+        )}
 
         {/* Status Indicators */}
         <div className="text-center mb-6">

@@ -178,6 +178,8 @@ Please provide your response in the following format:
 PART1: [Your main response here - this will be spoken and displayed as text]
 PART2: [Code examples or technical content here - this will be displayed in a code box]
 
+IMPORTANT: Always include suggestions for related articles and relevant YouTube videos that the user can explore to learn more about the topic. Mention these naturally in your response.
+
 If no code is needed, leave PART2 empty.`
 
     console.log('🔗 Calling Gemini API...')
