@@ -50,3 +50,8 @@ test-avatar-display.html
 "tat -an findstr 3000"
 tatus
 sirganguly.jpg
+
+# Ignore assets folder except avatars
+assets/*
+!assets/avatars/
+!assets/avatars/*
