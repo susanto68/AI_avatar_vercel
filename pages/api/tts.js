@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { text } = req.body || {}
+    const { text, lang, avatarType } = req.body || {}
 
     // Validate required fields
     if (!text || typeof text !== 'string') {
@@ -31,58 +31,70 @@ export default async function handler(req, res) {
       })
     }
 
-    // Prepare the request body for Gemini TTS
-    const requestBody = {
-      responseModality: "audio",
-      speechConfig: {
-        voice: {
-          name: "en-US-Standard-A"
-        },
-        audioEncoding: "MP3"
-      },
-      prompt: text
-    }
+    // Choose Hindi male voice candidates when applicable
+    const isHindi = (lang && typeof lang === 'string' && lang.toLowerCase().startsWith('hi')) || avatarType === 'hindi-teacher'
+    const voiceCandidates = isHindi
+      ? ['hi-IN-Neural2-D', 'hi-IN-Standard-D', 'hi-IN-Standard-B', 'hi-IN-Standard-A']
+      : ['en-US-Standard-A']
 
     console.log('🎤 Calling Gemini TTS API with text:', text.substring(0, 50) + '...')
 
-    // Call Gemini TTS API
-    const geminiResponse = await fetch(
-      `https://api.ai.google/v1/models/gemini-2.5-flash-preview-tts:generate?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      }
-    )
+    let audioContent = null
+    let lastError = null
 
-    if (!geminiResponse.ok) {
-      const errorData = await geminiResponse.json().catch(() => ({}))
-      console.error('Gemini TTS API error:', errorData)
-      
-      // Handle specific error cases
-      if (geminiResponse.status === 400) {
-        return res.status(400).json({ 
-          error: 'Invalid text provided for TTS conversion.'
-        })
-      } else if (geminiResponse.status === 401) {
-        return res.status(500).json({ 
-          error: 'TTS service authentication error. Please try again later.'
-        })
-      } else if (geminiResponse.status === 429) {
-        return res.status(429).json({ 
-          error: 'TTS service rate limit exceeded. Please try again in a moment.'
-        })
-      } else {
-        throw new Error(`Gemini TTS API error: ${geminiResponse.status}`)
+    for (const candidate of voiceCandidates) {
+      try {
+        const requestBody = {
+          responseModality: "audio",
+          speechConfig: {
+            voice: { name: candidate },
+            audioEncoding: "MP3"
+          },
+          prompt: text
+        }
+        console.log(`🎤 Attempting voice: ${candidate}`)
+
+        const geminiResponse = await fetch(
+          `https://api.ai.google/v1/models/gemini-2.5-flash-preview-tts:generate?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          }
+        )
+
+        if (!geminiResponse.ok) {
+          const errorData = await geminiResponse.json().catch(() => ({}))
+          console.warn(`⚠️ TTS error for voice ${candidate}:`, errorData)
+          lastError = { status: geminiResponse.status, errorData }
+          // On 400 try next candidate; for 401/429/others break and handle below
+          if (geminiResponse.status === 400) {
+            continue
+          } else if (geminiResponse.status === 429) {
+            return res.status(429).json({ error: 'TTS service rate limit exceeded. Please try again in a moment.' })
+          } else if (geminiResponse.status === 401) {
+            return res.status(500).json({ error: 'TTS service authentication error. Please try again later.' })
+          } else {
+            continue
+          }
+        }
+
+        const data = await geminiResponse.json()
+        audioContent = data.audioContent
+        if (audioContent) {
+          break
+        }
+      } catch (err) {
+        console.warn(`⚠️ Exception trying voice ${candidate}:`, err.message)
+        lastError = err
+        continue
       }
     }
 
-    const data = await geminiResponse.json()
-    
-    // Extract audio content from response
-    const audioContent = data.audioContent
+    if (!audioContent) {
+      console.error('Gemini TTS failed for all voice candidates', lastError)
+      return res.status(500).json({ error: 'TTS generation failed for all voices. Please try again later.' })
+    }
 
     if (!audioContent) {
       throw new Error('No audio content received from Gemini TTS API')

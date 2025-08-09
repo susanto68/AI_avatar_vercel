@@ -58,13 +58,15 @@ export default function AvatarChat() {
   const playAvatarGreeting = () => {
     if (hasPlayedGreeting || !avatarConfig) return
 
-    const greetingMessage = `You're now talking to ${avatarConfig.name}. I'm ready to help you learn about ${avatarConfig.domain.toLowerCase()}.`
+    const greetingMessage = avatar === 'hindi-teacher'
+      ? `आप अभी ${avatarConfig.name} से बात कर रहे हैं। मैं ${avatarConfig.domain.toLowerCase()} में आपकी मदद के लिए तैयार हूँ।`
+      : `You're now talking to ${avatarConfig.name}. I'm ready to help you learn about ${avatarConfig.domain.toLowerCase()}.`
     
     setIsSpeaking(true)
     speakText(greetingMessage, () => {
       setIsSpeaking(false)
       setHasPlayedGreeting(true)
-    })
+    }, { avatarType: avatar })
   }
 
   // Handle speech recognition result
@@ -97,22 +99,22 @@ export default function AvatarChat() {
         const noSpeechMessage = "I didn't hear anything. Please try speaking again, or check if your microphone is working properly."
         setCurrentText(noSpeechMessage)
         setIsSpeaking(true)
-        speakText(noSpeechMessage, () => setIsSpeaking(false))
+        speakText(noSpeechMessage, () => setIsSpeaking(false), { avatarType: avatar })
       } else if (speechError.includes('not-allowed') || speechError.includes('permission')) {
         const permissionMessage = "Microphone access is required. Please allow microphone permissions in your browser settings and refresh the page."
         setCurrentText(permissionMessage)
         setIsSpeaking(true)
-        speakText(permissionMessage, () => setIsSpeaking(false))
+        speakText(permissionMessage, () => setIsSpeaking(false), { avatarType: avatar })
       } else if (speechError.includes('network') || speechError.includes('connection')) {
         const networkMessage = "Network connection issue detected. Please check your internet connection and try again."
         setCurrentText(networkMessage)
         setIsSpeaking(true)
-        speakText(networkMessage, () => setIsSpeaking(false))
+        speakText(networkMessage, () => setIsSpeaking(false), { avatarType: avatar })
       } else {
         const genericMessage = "There was an issue with speech recognition. Please try again."
         setCurrentText(genericMessage)
         setIsSpeaking(true)
-        speakText(genericMessage, () => setIsSpeaking(false))
+        speakText(genericMessage, () => setIsSpeaking(false), { avatarType: avatar })
       }
       
       // Auto-hide error after 8 seconds for speech errors
@@ -151,7 +153,7 @@ export default function AvatarChat() {
       const errorMessage = 'Please provide a valid question or message.'
       setCurrentText(errorMessage)
       setIsSpeaking(true)
-      speakText(errorMessage, () => setIsSpeaking(false))
+      speakText(errorMessage, () => setIsSpeaking(false), { avatarType: avatar })
       return
     }
 
@@ -159,7 +161,7 @@ export default function AvatarChat() {
       const errorMessage = 'Please provide a valid question or message.'
       setCurrentText(errorMessage)
       setIsSpeaking(true)
-      speakText(errorMessage, () => setIsSpeaking(false))
+      speakText(errorMessage, () => setIsSpeaking(false), { avatarType: avatar })
       return
     }
 
@@ -167,7 +169,7 @@ export default function AvatarChat() {
       const errorMessage = 'Avatar configuration error. Please go back and select a valid avatar.'
       setCurrentText(errorMessage)
       setIsSpeaking(true)
-      speakText(errorMessage, () => setIsSpeaking(false))
+      speakText(errorMessage, () => setIsSpeaking(false), { avatarType: avatar })
       return
     }
 
@@ -251,7 +253,7 @@ export default function AvatarChat() {
           speakText(data.part1, () => {
             setIsSpeaking(false)
             console.log('Finished speaking API response')
-          })
+          }, { avatarType: avatar })
         // }, 100)
       }
 
@@ -286,11 +288,11 @@ export default function AvatarChat() {
       
       // Speak fallback response
       speechTimeoutRef.current = setTimeout(() => {
-        setIsSpeaking(true)
-        speakText(userFriendlyMessage, () => {
+          setIsSpeaking(true)
+          speakText(userFriendlyMessage, () => {
           setIsSpeaking(false)
           console.log('Finished speaking fallback response')
-        })
+          }, { avatarType: avatar })
       }, 100)
     } finally {
       setIsProcessing(false)
@@ -336,7 +338,7 @@ export default function AvatarChat() {
       const unsupportedMessage = "Speech recognition is not supported in your browser. Please use a modern browser like Chrome, Firefox, or Safari."
       setCurrentText(unsupportedMessage)
       setIsSpeaking(true)
-      speakText(unsupportedMessage, () => setIsSpeaking(false))
+      speakText(unsupportedMessage, () => setIsSpeaking(false), { avatarType: avatar })
       return
     }
     
@@ -345,7 +347,7 @@ export default function AvatarChat() {
       const permissionMessage = "Microphone access is required. Please allow microphone permissions in your browser settings and refresh the page."
       setCurrentText(permissionMessage)
       setIsSpeaking(true)
-      speakText(permissionMessage, () => setIsSpeaking(false))
+      speakText(permissionMessage, () => setIsSpeaking(false), { avatarType: avatar })
       return
     }
     
@@ -355,7 +357,7 @@ export default function AvatarChat() {
       const errorMessage = "Failed to start speech recognition. Please try again or check your microphone settings."
       setCurrentText(errorMessage)
       setIsSpeaking(true)
-      speakText(errorMessage, () => setIsSpeaking(false))
+      speakText(errorMessage, () => setIsSpeaking(false), { avatarType: avatar })
     }
   }
 
@@ -369,7 +371,7 @@ export default function AvatarChat() {
       const noSpeechMessage = "I didn't hear anything. Please try speaking again, or check if your microphone is working properly."
       setCurrentText(noSpeechMessage)
       setIsSpeaking(true)
-      speakText(noSpeechMessage, () => setIsSpeaking(false))
+      speakText(noSpeechMessage, () => setIsSpeaking(false), { avatarType: avatar })
     }
   }
 
