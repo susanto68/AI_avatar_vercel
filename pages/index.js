@@ -45,8 +45,8 @@ export default function Home() {
         sessionStorage.setItem('welcomePlayed', 'true')
       }
       
-      // Use the imported speakText function, not the hook version
-      speakText(welcomeMessage, "en", "welcome", () => {
+      // Use the imported speakText function with proper callback
+      speakText(welcomeMessage, () => {
         console.log('✅ Welcome message completed successfully')
       })
       
