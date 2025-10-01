@@ -14,32 +14,32 @@ export default function CodeBox({ code }) {
   }
 
   return (
-    <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-gray-300 text-sm font-mono">javascript</span>
+    <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-gray-300 text-xs sm:text-sm font-mono">javascript</span>
         <button
           onClick={copyToClipboard}
-          className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
+          className="text-gray-400 hover:text-white text-xs sm:text-sm flex items-center gap-1 transition-colors"
         >
           {copied ? (
             <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
-              Copied!
+              <span className="hidden sm:inline">Copied!</span>
             </>
           ) : (
             <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
               </svg>
-              Copy code
+              <span className="hidden sm:inline">Copy code</span>
             </>
           )}
         </button>
       </div>
-      <pre className="text-gray-100 text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap">
+      <pre className="text-gray-100 text-xs sm:text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap">
         <code className="break-words overflow-wrap-anywhere">{code}</code>
       </pre>
     </div>

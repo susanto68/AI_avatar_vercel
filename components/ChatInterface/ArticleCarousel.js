@@ -22,10 +22,10 @@ const ArticleCarousel = ({ articles = [], title = "Related Articles" }) => {
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white flex items-center gap-1.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
@@ -34,22 +34,22 @@ const ArticleCarousel = ({ articles = [], title = "Related Articles" }) => {
           </svg>
           {title}
         </h3>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <button
             onClick={scrollLeft}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
             aria-label="Scroll left"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="15,18 9,12 15,6"/>
             </svg>
           </button>
           <button
             onClick={scrollRight}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
             aria-label="Scroll right"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="9,18 15,12 9,6"/>
             </svg>
           </button>
@@ -58,16 +58,16 @@ const ArticleCarousel = ({ articles = [], title = "Related Articles" }) => {
       
       <div 
         id="article-carousel"
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4"
+        className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {articles.map((article, index) => (
           <div
             key={index}
-            className="flex-shrink-0 w-80 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 hover:border-white/20 transition-all duration-200 hover:scale-105"
+            className="flex-shrink-0 w-72 sm:w-80 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 hover:border-white/20 transition-all duration-200"
           >
-            <div className="p-4">
-              <div className="w-full h-32 rounded-lg mb-3 overflow-hidden">
+            <div className="p-3">
+              <div className="w-full h-28 sm:h-32 rounded-lg mb-2 overflow-hidden">
                 {article.thumbnailUrl ? (
                   <img 
                     src={article.thumbnailUrl} 

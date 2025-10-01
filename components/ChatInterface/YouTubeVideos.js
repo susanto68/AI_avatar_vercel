@@ -4,10 +4,10 @@ const YouTubeVideos = ({ videos = [], title = "Related Videos" }) => {
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center mb-4">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div className="mb-3">
+      <div className="flex items-center mb-2">
+        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white flex items-center gap-1.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polygon points="23,7 16,12 23,17 23,7"/>
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
           </svg>
@@ -15,14 +15,14 @@ const YouTubeVideos = ({ videos = [], title = "Related Videos" }) => {
         </h3>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {videos.map((video, index) => (
           <div
             key={index}
-            className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 hover:border-white/20 transition-all duration-200 hover:scale-105"
+            className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 hover:border-white/20 transition-all duration-200"
           >
             <div className="relative">
-              <div className="w-full h-32 rounded-t-lg overflow-hidden">
+              <div className="w-full h-28 sm:h-32 rounded-t-lg overflow-hidden">
                 {video.thumbnailUrl ? (
                   <img 
                     src={video.thumbnailUrl} 
@@ -49,11 +49,11 @@ const YouTubeVideos = ({ videos = [], title = "Related Videos" }) => {
                 </div>
               </div>
             </div>
-            <div className="p-4">
-              <h4 className="text-white font-medium text-sm mb-2 line-clamp-2 break-words overflow-wrap-anywhere">
+            <div className="p-3">
+              <h4 className="text-white font-medium text-xs sm:text-sm mb-1.5 line-clamp-2 break-words overflow-wrap-anywhere">
                 {video.title}
               </h4>
-              <p className="text-white/60 text-xs mb-3 line-clamp-2 break-words overflow-wrap-anywhere">
+              <p className="text-white/60 text-xs mb-2 line-clamp-2 break-words overflow-wrap-anywhere">
                 {video.description}
               </p>
               <div className="flex items-center justify-between">

@@ -2,37 +2,35 @@ export default function AvatarDisplay({ avatar, config, isSpeaking }) {
   return (
     <div className="text-center">
       <div className="relative inline-block">
-        <div className={`relative p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20 transition-all duration-300 ${isSpeaking ? 'scale-105' : ''}`}>
+        <div className={`relative p-3 rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border-2 transition-all duration-300 ${isSpeaking ? 'border-blue-400 scale-105 shadow-lg shadow-blue-500/50' : 'border-white/20'}`}>
           <img
             src={config.image}
             alt={config.name}
-            className={`w-24 h-24 md:w-32 md:h-32 rounded-full object-cover mx-auto border-4 border-white/40 shadow-2xl transition-all duration-300 ${isSpeaking ? 'animate-pulse' : ''}`}
+            className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full object-cover mx-auto border-3 shadow-xl transition-all duration-300 ${isSpeaking ? 'border-blue-400 animate-pulse' : 'border-white/40'}`}
             onError={(e) => {
               e.target.style.display = 'none'
               e.target.nextElementSibling.style.display = 'block'
             }}
           />
-          <div className={`text-6xl md:text-8xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
+          <div className={`text-5xl sm:text-6xl md:text-7xl ${isSpeaking ? 'animate-pulse' : ''}`} style={{display: 'none'}}>
             {config.emoji}
           </div>
           
           {/* Emoji Badge */}
-          <div className={`absolute -bottom-2 -right-2 md:-bottom-3 md:-right-3 bg-white/90 backdrop-blur-sm rounded-full p-2 md:p-3 shadow-lg border border-white/50 transition-all duration-300 ${isSpeaking ? 'scale-110' : ''}`}>
-            <div className="text-xl md:text-2xl">
+          <div className={`absolute -bottom-1.5 -right-1.5 md:-bottom-2 md:-right-2 bg-white/95 backdrop-blur-sm rounded-full p-1.5 md:p-2 shadow-lg border-2 transition-all duration-300 ${isSpeaking ? 'border-blue-400 scale-110 animate-pulse' : 'border-white/50'}`}>
+            <div className="text-lg md:text-xl">
               {config.emoji}
             </div>
           </div>
         </div>
         
-        {/* Speaking indicator */}
+        {/* Speaking indicator - More prominent */}
         {isSpeaking && (
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full animate-ping"></div>
+          <>
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full animate-ping"></div>
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full"></div>
+          </>
         )}
-      </div>
-      
-      <div className="mt-4 text-white/80">
-        <p className="font-medium text-lg">{config.name}</p>
-        <p className="text-sm opacity-75">{config.domain}</p>
       </div>
     </div>
   )

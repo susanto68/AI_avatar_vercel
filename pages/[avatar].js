@@ -160,35 +160,8 @@ export default function AvatarChat() {
     }
   }
 
-  // Handle speech recognition result - simplified like working example
-  useEffect(() => {
-    if (transcript && !isListening) {
-      console.log('🎤 Speech recognized:', transcript)
-      setCurrentText(transcript)
-      setNoSpeechDetected(false)
-      // Call API with transcript immediately
-      handleApiCall(transcript)
-      resetTranscript()
-    }
-  }, [transcript, isListening, resetTranscript])
-
-  // Handle speech recognition errors
-  useEffect(() => {
-    if (speechError) {
-      setShowError(true)
-      setNoSpeechDetected(true)
-      
-      const timer = setTimeout(() => {
-    setShowError(false)
-    clearSpeechError()
-        setNoSpeechDetected(false)
-      }, 8000)
-      return () => clearTimeout(timer)
-    }
-  }, [speechError, clearSpeechError])
-
   // API call function - simplified like the working example
-  const handleApiCall = async (prompt) => {
+  const handleApiCall = useCallback(async (prompt) => {
     if (!prompt || !avatarConfig) return
     
     setApiProcessing(true)
@@ -260,7 +233,34 @@ export default function AvatarChat() {
     } finally {
       setApiProcessing(false)
     }
-  }
+  }, [avatar, avatarConfig, sessionId])
+
+  // Handle speech recognition result - simplified like working example
+  useEffect(() => {
+    if (transcript && !isListening) {
+      console.log('🎤 Speech recognized:', transcript)
+      setCurrentText(transcript)
+      setNoSpeechDetected(false)
+      // Call API with transcript immediately
+      handleApiCall(transcript)
+      resetTranscript()
+    }
+  }, [transcript, isListening, resetTranscript, handleApiCall])
+
+  // Handle speech recognition errors
+  useEffect(() => {
+    if (speechError) {
+      setShowError(true)
+      setNoSpeechDetected(true)
+      
+      const timer = setTimeout(() => {
+    setShowError(false)
+    clearSpeechError()
+        setNoSpeechDetected(false)
+      }, 8000)
+      return () => clearTimeout(timer)
+    }
+  }, [speechError, clearSpeechError])
 
   // Cleanup on component unmount
   useEffect(() => {
@@ -302,30 +302,30 @@ export default function AvatarChat() {
 
       <VoiceFallback onVoiceSupportChange={(supported) => console.log('Voice support:', supported)}>
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-hidden">
-          {/* Back Button */}
-          <div className="absolute top-4 left-4 z-10">
+          {/* Back Button - Compact */}
+          <div className="absolute top-2 left-2 z-10">
               <button
               onClick={handleBack}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-md border border-white/20 hover:scale-105"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-md border border-white/20 hover:scale-105 text-sm font-bold"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
-              <span className="font-bold">BACK</span>
+              <span>BACK</span>
             </button>
           </div>
 
           {/* Main Content */}
-          <div className="container mx-auto px-4 pb-32 flex flex-col min-h-screen">
-            {/* Header */}
-            <div className="text-center text-white pt-20 mb-8">
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{avatarConfig.name}</h1>
-              <p className="text-lg opacity-80">{avatarConfig.domain}</p>
+          <div className="container mx-auto px-3 pb-20 flex flex-col min-h-screen">
+            {/* Compact Header - Mobile Optimized */}
+            <div className="text-center text-white pt-12 mb-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-0.5">{avatarConfig.name}</h1>
+              <p className="text-xs sm:text-sm md:text-base opacity-80">{avatarConfig.domain}</p>
             </div>
 
-        {/* Avatar Display */}
-            <div className="flex justify-center mb-8">
-          <div className="transform transition-all duration-300 hover:scale-105">
+        {/* Avatar Display - Prominent with minimal gap */}
+            <div className="flex justify-center mb-3">
+          <div className="transform transition-all duration-300">
             <AvatarDisplay 
               avatar={avatar} 
               config={avatarConfig} 
@@ -334,8 +334,8 @@ export default function AvatarChat() {
           </div>
         </div>
 
-            {/* Control Buttons - All Side by Side Below Avatar */}
-            <div className="flex flex-wrap justify-center items-center gap-3 mb-6 px-4">
+            {/* Compact Control Buttons - Mobile First */}
+            <div className="flex flex-wrap justify-center items-center gap-2 mb-3 px-2">
               {/* Play/Pause Button */}
               <button
                 onClick={() => {
@@ -356,14 +356,14 @@ export default function AvatarChat() {
                   }
                 }}
                 disabled={!currentText}
-                className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold transition-all duration-200 shadow-md hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm ${
                   isSpeaking && !isPaused
                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
                 title={isSpeaking && !isPaused ? 'Pause speech' : 'Play speech'}
               >
-                <span className="text-lg">{isSpeaking && !isPaused ? '⏸' : '▶️'}</span>
+                <span className="text-base">{isSpeaking && !isPaused ? '⏸' : '▶️'}</span>
                 <span className="font-bold">{isSpeaking && !isPaused ? 'PAUSE' : 'PLAY'}</span>
               </button>
 
@@ -371,10 +371,10 @@ export default function AvatarChat() {
               <button
                 onClick={handleCopyAnswer}
                 disabled={!currentText}
-                className="flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-all duration-200 shadow-md hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                 title="Copy answer to clipboard"
               >
-                <span className="text-lg">📋</span>
+                <span className="text-base">📋</span>
                 <span className="font-bold">COPY</span>
               </button>
 
@@ -387,102 +387,51 @@ export default function AvatarChat() {
                     handleStartListening()
                   }
                 }}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-base sm:text-lg transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 shadow-lg hover:scale-105 ${
                   isListening
                     ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-xl'
+                    : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white'
                 }`}
                 title={isListening ? 'Stop listening' : 'Click to ask a question'}
               >
-                <span className="text-xl">🎤</span>
-                <span className="font-bold">{isListening ? 'STOP' : 'ASK QUESTION'}</span>
+                <span className="text-lg">🎤</span>
+                <span className="font-bold">{isListening ? 'STOP' : 'ASK'}</span>
               </button>
             </div>
 
-            {/* User Instruction */}
-            <div className="text-center mb-6">
-              <p className="text-white text-base sm:text-lg font-bold">
-                {isListening ? "🎤 LISTENING... SPEAK NOW!" : "🎯 TAP THE 🎤 BUTTON ABOVE TO ASK A QUESTION"}
-              </p>
-            </div>
-
-            {/* Button Legend - Help Users Understand */}
-            <div className="text-center mb-4">
-              <div className="inline-flex flex-wrap justify-center gap-4 text-xs text-white/70">
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-green-600 rounded-full"></span>
-                  <span>PLAY: Resume speech</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-blue-600 rounded-full"></span>
-                  <span>PAUSE: Stop speech</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-purple-600 rounded-full"></span>
-                  <span>COPY: Save answer</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full"></span>
-                  <span>ASK: Voice question</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Debug Info for Mobile */}
-            <div className="text-center mb-4">
-              <div className="inline-flex flex-wrap justify-center gap-2 text-xs text-white/50">
-                <span>🎤 Speaking: {isSpeaking ? 'Yes' : 'No'}</span>
-                <span>⏸ Paused: {isPaused ? 'Yes' : 'No'}</span>
-                <span>📝 Text: {currentText ? 'Available' : 'None'}</span>
-              </div>
-            </div>
-
-            {/* Test Speech Button for Mobile Debugging */}
-            {currentText && (
-              <div className="text-center mb-4">
-                <button
-                  onClick={testSpeech}
-                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold text-sm transition-all duration-200"
-                  title="Test speech synthesis on mobile"
-                >
-                  🧪 Test Speech
-                </button>
-              </div>
-            )}
-
-            {/* Status Messages */}
-            <div className="text-center mb-6">
+            {/* Status Messages - Compact */}
+            <div className="text-center mb-2">
               {isListening && (
-                <div className="inline-flex items-center gap-3 bg-green-500/30 text-green-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg backdrop-blur-md border border-green-400/30">
-                  <div className="w-4 h-4 bg-green-300 rounded-full animate-ping"></div>
-                  <span>🎤 Listening... Speak now!</span>
+                <div className="inline-flex items-center gap-2 bg-green-500/30 text-green-100 px-4 py-2 rounded-full text-sm font-semibold animate-pulse shadow-md backdrop-blur-md border border-green-400/30">
+                  <div className="w-3 h-3 bg-green-300 rounded-full animate-ping"></div>
+                  <span>🎤 Listening...</span>
           </div>
         )}
 
               {isSpeaking && (
-                <div className="inline-flex items-center gap-3 bg-blue-500/30 text-blue-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg backdrop-blur-md border border-blue-400/30">
-                  <div className="w-4 h-4 bg-blue-300 rounded-full animate-ping"></div>
+                <div className="inline-flex items-center gap-2 bg-blue-500/30 text-blue-100 px-4 py-2 rounded-full text-sm font-semibold animate-pulse shadow-md backdrop-blur-md border border-blue-400/30">
+                  <div className="w-3 h-3 bg-blue-300 rounded-full animate-ping"></div>
                   <span>🔊 Speaking...</span>
                 </div>
               )}
               
               {isProcessing && (
-                <div className="inline-flex items-center gap-3 bg-purple-500/30 text-purple-100 px-6 py-3 rounded-full text-base font-semibold animate-pulse shadow-lg backdrop-blur-md border border-purple-400/30">
-                  <div className="w-4 h-4 bg-purple-300 rounded-full animate-spin"></div>
-                  <span>🤔 Processing your question...</span>
+                <div className="inline-flex items-center gap-2 bg-purple-500/30 text-purple-100 px-4 py-2 rounded-full text-sm font-semibold animate-pulse shadow-md backdrop-blur-md border border-purple-400/30">
+                  <div className="w-3 h-3 bg-purple-300 rounded-full animate-spin"></div>
+                  <span>🤔 Processing...</span>
                 </div>
               )}
               
               {showError && (
-                <div className="inline-flex items-center gap-3 bg-red-500/30 text-red-100 px-6 py-3 rounded-full text-base font-semibold shadow-lg backdrop-blur-md border border-red-400/30">
-                  <span>❌ {apiError || speechError || 'An error occurred'}</span>
+                <div className="inline-flex items-center gap-2 bg-red-500/30 text-red-100 px-4 py-2 rounded-full text-sm font-semibold shadow-md backdrop-blur-md border border-red-400/30">
+                  <span>❌ {apiError || speechError || 'Error'}</span>
                 </div>
               )}
             </div>
 
-            {/* Content Display */}
-            <div className="flex-1 space-y-6">
-              {/* Text Display */}
+            {/* Content Display - Compact */}
+            <div className="flex-1 space-y-3">
+              {/* Text Display - Prominent */}
               {currentText && (
                 <div className="break-words overflow-wrap-anywhere">
                   <ErrorBoundary fallback={<TextDisplayFallback text={currentText} />}>
