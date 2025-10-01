@@ -82,19 +82,35 @@ export const useSpeechSynthesis = () => {
     if (!text || typeof text !== 'string') return text
     
     return text
-      // Replace colons with periods for better speech flow
-      .replace(/:/g, '. ')
-      // Replace asterisks with nothing (they're often used for emphasis in markdown)
-      .replace(/\*/g, '')
-      // Replace multiple spaces with single space
-      .replace(/\s+/g, ' ')
-      // Replace multiple periods with single period
-      .replace(/\.+/g, '.')
-      // Replace multiple exclamation marks with single
-      .replace(/!+/g, '!')
-      // Replace multiple question marks with single
-      .replace(/\?+/g, '?')
-      // Clean up any double spaces created by replacements
+      // Remove markdown formatting characters
+      .replace(/\*/g, ' ')           // Remove asterisks (*)
+      .replace(/#/g, ' ')            // Remove hash symbols (#)
+      .replace(/`/g, ' ')            // Remove backticks (`)
+      .replace(/~/g, ' ')            // Remove tildes (~)
+      .replace(/_/g, ' ')            // Remove underscores (_)
+      .replace(/\[/g, ' ')           // Remove square brackets [
+      .replace(/\]/g, ' ')           // Remove square brackets ]
+      .replace(/\{/g, ' ')           // Remove curly braces {
+      .replace(/\}/g, ' ')           // Remove curly braces }
+      .replace(/\|/g, ' ')           // Remove pipe symbols |
+      .replace(/\\/g, ' ')           // Remove backslashes
+      .replace(/</g, ' ')            // Remove less than <
+      .replace(/>/g, ' ')            // Remove greater than >
+      .replace(/&/g, ' and ')        // Replace & with "and"
+      .replace(/@/g, ' at ')         // Replace @ with "at"
+      .replace(/\$/g, ' dollar ')    // Replace $ with "dollar"
+      .replace(/\+/g, ' plus ')      // Replace + with "plus"
+      .replace(/=/g, ' equals ')     // Replace = with "equals"
+      .replace(/"/g, ' ')            // Remove double quotes
+      .replace(/'/g, ' ')            // Remove single quotes
+      .replace(/'/g, ' ')            // Remove curly apostrophe
+      .replace(/'/g, ' ')            // Remove curly apostrophe
+      .replace(/"/g, ' ')            // Remove curly double quotes
+      .replace(/"/g, ' ')            // Remove curly double quotes
+      .replace(/:/g, '. ')           // Replace colons with periods
+      // Add pauses at periods for 1 second pause effect
+      .replace(/\./g, '. ... ')      // Add extra dots for pause effect
+      // Clean up multiple spaces
       .replace(/\s+/g, ' ')
       .trim()
   }
@@ -191,9 +207,9 @@ export const useSpeechSynthesis = () => {
 
       const utterance = new window.SpeechSynthesisUtterance(cleanedText)
       
-      // Set voice characteristics for deep male voice
+      // Set voice characteristics for deep male voice and clarity
       utterance.pitch = 0.8  // Deep tone
-      utterance.rate = 0.95  // Slightly slower for clarity
+      utterance.rate = 0.85  // Slower for clearer articulation (was 0.95)
       utterance.volume = 0.8
 
       console.log('🎤 Created utterance with settings:', {
