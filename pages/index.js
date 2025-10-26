@@ -98,7 +98,7 @@ export default function Home() {
         console.log('🔄 Visitor already counted in this session, showing current counts');
         // Just display current counts without incrementing
         const globalCount = parseInt(localStorage.getItem('globalCount')) || 503;
-        const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 127;
+        const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 2129;
         
         const globalElement = document.getElementById("global-count");
         const indiaElement = document.getElementById("india-count");
@@ -154,7 +154,7 @@ export default function Home() {
       // Get current counts from localStorage or use defaults
       const getCurrentCounts = () => {
         let globalCount = parseInt(localStorage.getItem('globalCount')) || 503;
-        let indiaCount = parseInt(localStorage.getItem('indiaCount')) || 127;
+        let indiaCount = parseInt(localStorage.getItem('indiaCount')) || 2129;
         
         // Check if counts are corrupted (negative or extremely high)
         if (globalCount < 0 || globalCount > 1000000) {
@@ -165,8 +165,8 @@ export default function Home() {
         
         if (indiaCount < 0 || indiaCount > 1000000) {
           console.warn('⚠️ Corrupted Indian count detected, resetting to default');
-          indiaCount = 127;
-          localStorage.setItem('indiaCount', '127');
+          indiaCount = 2129;
+          localStorage.setItem('indiaCount', '2129');
         }
         
         // Ensure counts are never negative
@@ -392,7 +392,7 @@ export default function Home() {
               🌍 <b>Global:</b> <span id="global-count" data-count="503">503</span>
             </div>
             <div className="visitor india">
-              🇮🇳 <b>India:</b> <span id="india-count" data-count="127">127</span>
+              🇮🇳 <b>India:</b> <span id="india-count" data-count="2129">2129</span>
             </div>
             <div className="visitor status" style={{fontSize: '8px', opacity: 0.6, marginTop: '2px'}}>
               📍 Detecting...

@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     // Use the counts provided by the frontend (from localStorage) as base
     // This ensures consistency between frontend and backend
     let globalCount = parseInt(currentGlobalCount) || parseInt(process.env.GLOBAL_VISITOR_COUNT || '503');
-    let indiaCount = parseInt(currentIndiaCount) || parseInt(process.env.INDIA_VISITOR_COUNT || '127');
+    let indiaCount = parseInt(currentIndiaCount) || parseInt(process.env.INDIA_VISITOR_COUNT || '2129');
     
     // Increment appropriate counter
     if (isIndia) {
