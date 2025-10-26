@@ -201,6 +201,9 @@ export default function Home() {
           
           let isIndia = (data.country_code === "IN");
           
+          // Get current counts before sending to API
+          let { globalCount, indiaCount } = getCurrentCounts();
+          
           // Send visitor data to our API for proper tracking
           fetch('/api/visitor-counter', {
             method: 'POST',
@@ -210,7 +213,9 @@ export default function Home() {
             body: JSON.stringify({
               countryCode: data.country_code,
               ipAddress: data.ip,
-              userAgent: navigator.userAgent
+              userAgent: navigator.userAgent,
+              currentGlobalCount: globalCount,
+              currentIndiaCount: indiaCount
             })
           })
           .then(res => res.json())

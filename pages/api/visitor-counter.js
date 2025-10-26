@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { countryCode, ipAddress, userAgent } = req.body;
+    const { countryCode, ipAddress, userAgent, currentGlobalCount, currentIndiaCount } = req.body;
 
     // Get current date for daily tracking
     const today = new Date().toISOString().split('T')[0];
@@ -17,18 +17,14 @@ export default async function handler(req, res) {
     // Determine if visitor is from India
     const isIndia = countryCode === 'IN';
     
-    // For now, we'll use a simple approach that works in Vercel
-    // In production, you should use a database like MongoDB, PostgreSQL, or Vercel KV
-    
-    // Get current counts from environment variables or use defaults
-    let globalCount = parseInt(process.env.GLOBAL_VISITOR_COUNT || '503');
-    let indiaCount = parseInt(process.env.INDIA_VISITOR_COUNT || '127');
+    // Use the counts provided by the frontend (from localStorage) as base
+    // This ensures consistency between frontend and backend
+    let globalCount = parseInt(currentGlobalCount) || parseInt(process.env.GLOBAL_VISITOR_COUNT || '503');
+    let indiaCount = parseInt(currentIndiaCount) || parseInt(process.env.INDIA_VISITOR_COUNT || '127');
     
     // Increment appropriate counter
     if (isIndia) {
       indiaCount++;
-      // Note: In Vercel, environment variables are read-only in production
-      // You'll need to use a database for persistent storage
     } else {
       globalCount++;
     }
@@ -51,7 +47,7 @@ export default async function handler(req, res) {
       globalCount,
       indiaCount,
       message: `${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`,
-      note: 'For production, use a database like Vercel KV or MongoDB for persistent counts'
+      note: 'Counts are managed by frontend localStorage for consistency'
     });
 
   } catch (error) {
