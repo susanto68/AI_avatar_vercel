@@ -66,53 +66,24 @@ export default function Home() {
     router.push(`/${avatarType}`)
   }
 
-  // Visitor counter functionality
+  // Visitor counter functionality - Count every page visit
   useEffect(() => {
-    // Check if visitor already counted in this session
-    const sessionKey = 'visitorCounted';
+    // Always count visitors on every page visit
+    console.log('🌍 New page visit detected - counting visitor');
     
-    // Reset session on page refresh for testing purposes
-    const isPageRefresh = performance.navigation.type === 1 || 
-                         (window.performance && window.performance.getEntriesByType('navigation')[0]?.type === 'reload');
+    // Clear any corrupted counter data
+    const globalCount = parseInt(localStorage.getItem('globalCount')) || 0;
+    const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 0;
     
-    if (isPageRefresh) {
-      console.log('🔄 Page refreshed - resetting visitor session');
-      sessionStorage.removeItem(sessionKey);
-      
-      // Also clear corrupted counter data on refresh
-      const globalCount = parseInt(localStorage.getItem('globalCount')) || 0;
-      const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 0;
-      
-      if (globalCount < 0 || globalCount > 1000000) {
-        console.log('🔄 Clearing corrupted global counter on refresh');
-        localStorage.removeItem('globalCount');
-      }
-      
-      if (indiaCount < 0 || indiaCount > 1000000) {
-        console.log('🔄 Clearing corrupted Indian counter on refresh');
-        localStorage.removeItem('indiaCount');
-      }
+    if (globalCount < 0 || globalCount > 1000000) {
+      console.log('🔄 Clearing corrupted global counter');
+      localStorage.removeItem('globalCount');
     }
     
-    if (sessionStorage.getItem(sessionKey)) {
-        console.log('🔄 Visitor already counted in this session, showing current counts');
-        // Just display current counts without incrementing
-        const globalCount = parseInt(localStorage.getItem('globalCount')) || 503;
-        const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 2129;
-        
-        const globalElement = document.getElementById("global-count");
-        const indiaElement = document.getElementById("india-count");
-        
-        if (globalElement) globalElement.innerText = globalCount;
-        if (indiaElement) indiaElement.innerText = indiaCount;
-        
-        // Update status message
-        const statusElement = document.querySelector('.visitor.status');
-        if (statusElement) {
-          statusElement.innerHTML = '🔄 Showing current counts';
-        }
-        return;
-      }
+    if (indiaCount < 0 || indiaCount > 1000000) {
+      console.log('🔄 Clearing corrupted Indian counter');
+      localStorage.removeItem('indiaCount');
+    }
 
     // Wait for DOM to be ready
     const timer = setTimeout(() => {
@@ -187,103 +158,99 @@ export default function Home() {
         }
       };
 
-      // Detect visitor country and update counters using our API
-      fetch("https://ipapi.co/json/")
-        .then(res => res.json())
-        .then(data => {
-          console.log('🌍 Visitor location detected:', data.country_code, data.country_name);
-          console.log('📍 Location details:', {
-            country: data.country_name,
-            code: data.country_code,
-            city: data.city,
-            region: data.region
-          });
-          
-          let isIndia = (data.country_code === "IN");
-          
-          // Get current counts before sending to API
-          let { globalCount, indiaCount } = getCurrentCounts();
-          
-          // Send visitor data to our API for proper tracking
-          fetch('/api/visitor-counter', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              countryCode: data.country_code,
-              ipAddress: data.ip,
-              userAgent: navigator.userAgent,
-              currentGlobalCount: globalCount,
-              currentIndiaCount: indiaCount
-            })
-          })
-          .then(res => res.json())
-          .then(apiResponse => {
-            if (apiResponse.success) {
-              console.log('✅ Visitor counted via API:', apiResponse.message);
+          // Detect visitor country and update counters using our API
+          fetch("https://ipapi.co/json/")
+            .then(res => res.json())
+            .then(data => {
+              console.log('🌍 Visitor location detected:', data.country_code, data.country_name);
+              console.log('📍 Location details:', {
+                country: data.country_name,
+                code: data.country_code,
+                city: data.city,
+                region: data.region
+              });
               
-              // Update display with new counts from API
-              updateCounter('global', apiResponse.globalCount);
-              updateCounter('india', apiResponse.indiaCount);
+              let isIndia = (data.country_code === "IN");
+              
+              // Get current counts before sending to API
+              let { globalCount, indiaCount } = getCurrentCounts();
+              
+              // Send visitor data to our API for proper tracking
+              fetch('/api/visitor-counter', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  countryCode: data.country_code,
+                  ipAddress: data.ip,
+                  userAgent: navigator.userAgent,
+                  currentGlobalCount: globalCount,
+                  currentIndiaCount: indiaCount
+                })
+              })
+              .then(res => res.json())
+              .then(apiResponse => {
+                if (apiResponse.success) {
+                  console.log('✅ Visitor counted via API:', apiResponse.message);
+                  
+                  // Update display with new counts from API
+                  updateCounter('global', apiResponse.globalCount);
+                  updateCounter('india', apiResponse.indiaCount);
+                  
+                  // Update status message
+                  const statusElement = document.querySelector('.visitor.status');
+                  if (statusElement) {
+                    statusElement.innerHTML = `📍 ${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`;
+                  }
+                } else {
+                  console.warn('⚠️ API counter failed, using local fallback');
+                  // Fallback to local counting
+                  let { globalCount, indiaCount } = getCurrentCounts();
+                  if (isIndia) {
+                    indiaCount++;
+                    updateCounter('india', indiaCount);
+                    updateCounter('global', globalCount);
+                  } else {
+                    globalCount++;
+                    updateCounter('global', globalCount);
+                    updateCounter('india', indiaCount);
+                  }
+                }
+              })
+              .catch(error => {
+                console.warn('⚠️ API call failed, using local fallback:', error);
+                // Fallback to local counting
+                let { globalCount, indiaCount } = getCurrentCounts();
+                if (isIndia) {
+                  indiaCount++;
+                  updateCounter('india', indiaCount);
+                  updateCounter('global', globalCount);
+                } else {
+                  globalCount++;
+                  updateCounter('global', globalCount);
+                  updateCounter('india', indiaCount);
+                }
+              });
+
+              console.log('✅ Visitor counted on page visit');
+            })
+            .catch(error => {
+              console.warn('⚠️ Location detection failed, using default counters:', error);
+              // Fallback to default behavior
+              let { globalCount, indiaCount } = getCurrentCounts();
+              globalCount++; // Assume global visitor
+              updateCounter('global', globalCount);
+              updateCounter('india', indiaCount);
+              
+              console.log('✅ Visitor counted (fallback) on page visit');
               
               // Update status message
               const statusElement = document.querySelector('.visitor.status');
               if (statusElement) {
-                statusElement.innerHTML = `📍 ${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`;
+                statusElement.innerHTML = '📍 Visitor counted (location unknown)';
               }
-            } else {
-              console.warn('⚠️ API counter failed, using local fallback');
-              // Fallback to local counting
-              let { globalCount, indiaCount } = getCurrentCounts();
-              if (isIndia) {
-                indiaCount++;
-                updateCounter('india', indiaCount);
-                updateCounter('global', globalCount);
-              } else {
-                globalCount++;
-                updateCounter('global', globalCount);
-                updateCounter('india', indiaCount);
-              }
-            }
-          })
-          .catch(error => {
-            console.warn('⚠️ API call failed, using local fallback:', error);
-            // Fallback to local counting
-            let { globalCount, indiaCount } = getCurrentCounts();
-            if (isIndia) {
-              indiaCount++;
-              updateCounter('india', indiaCount);
-              updateCounter('global', globalCount);
-            } else {
-              globalCount++;
-              updateCounter('global', globalCount);
-              updateCounter('india', indiaCount);
-            }
-          });
-
-          // Mark this visitor as counted for this session
-          sessionStorage.setItem(sessionKey, 'true');
-          console.log('✅ Visitor counted and session marked');
-        })
-        .catch(error => {
-          console.warn('⚠️ Location detection failed, using default counters:', error);
-          // Fallback to default behavior
-          let { globalCount, indiaCount } = getCurrentCounts();
-          globalCount++; // Assume global visitor
-          updateCounter('global', globalCount);
-          updateCounter('india', indiaCount);
-          
-          // Mark this visitor as counted for this session
-          sessionStorage.setItem(sessionKey, 'true');
-          console.log('✅ Visitor counted (fallback) and session marked');
-          
-          // Update status message
-          const statusElement = document.querySelector('.visitor.status');
-          if (statusElement) {
-            statusElement.innerHTML = '📍 Visitor counted (location unknown)';
-          }
-        });
+            });
     }, 1000); // Wait 1 second for DOM to be ready
 
     return () => clearTimeout(timer);

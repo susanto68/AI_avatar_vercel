@@ -96,7 +96,7 @@ export default function AvatarChat() {
     }, { avatarType: avatar })
   }, [avatarConfig, hasPlayedGreeting, avatar])
 
-  // Initialize greeting
+  // Initialize greeting and count visitor
   useEffect(() => {
     if (avatarConfig && !hasPlayedGreeting) {
       greetingTimeoutRef.current = setTimeout(() => {
@@ -104,9 +104,110 @@ export default function AvatarChat() {
       }, 1000)
     }
 
+    // Count visitor on avatar page visit
+    const countVisitor = () => {
+      console.log('🌍 Avatar page visit - counting visitor');
+      
+      // Get current counts
+      const getCurrentCounts = () => {
+        let globalCount = parseInt(localStorage.getItem('globalCount')) || 503;
+        let indiaCount = parseInt(localStorage.getItem('indiaCount')) || 2129;
+        
+        // Check if counts are corrupted
+        if (globalCount < 0 || globalCount > 1000000) {
+          globalCount = 503;
+          localStorage.setItem('globalCount', '503');
+        }
+        
+        if (indiaCount < 0 || indiaCount > 1000000) {
+          indiaCount = 2129;
+          localStorage.setItem('indiaCount', '2129');
+        }
+        
+        return { globalCount, indiaCount };
+      };
+
+      // Update counter in localStorage and animate
+      const updateCounter = (type, newValue) => {
+        const safeValue = Math.max(0, newValue);
+        localStorage.setItem(`${type}Count`, safeValue.toString());
+        
+        // Update display if elements exist
+        const globalElement = document.getElementById("global-count");
+        const indiaElement = document.getElementById("india-count");
+        
+        if (type === 'global' && globalElement) {
+          globalElement.innerText = safeValue;
+        }
+        if (type === 'india' && indiaElement) {
+          indiaElement.innerText = safeValue;
+        }
+      };
+
+      // Detect visitor country and update counters
+      fetch("https://ipapi.co/json/")
+        .then(res => res.json())
+        .then(data => {
+          let isIndia = (data.country_code === "IN");
+          let { globalCount, indiaCount } = getCurrentCounts();
+          
+          // Send to API
+          fetch('/api/visitor-counter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              countryCode: data.country_code,
+              ipAddress: data.ip,
+              userAgent: navigator.userAgent,
+              currentGlobalCount: globalCount,
+              currentIndiaCount: indiaCount
+            })
+          })
+          .then(res => res.json())
+          .then(apiResponse => {
+            if (apiResponse.success) {
+              updateCounter('global', apiResponse.globalCount);
+              updateCounter('india', apiResponse.indiaCount);
+              console.log('✅ Avatar page visitor counted:', apiResponse.message);
+            } else {
+              // Fallback
+              if (isIndia) {
+                indiaCount++;
+                updateCounter('india', indiaCount);
+              } else {
+                globalCount++;
+                updateCounter('global', globalCount);
+              }
+            }
+          })
+          .catch(() => {
+            // Fallback
+            if (isIndia) {
+              indiaCount++;
+              updateCounter('india', indiaCount);
+            } else {
+              globalCount++;
+              updateCounter('global', globalCount);
+            }
+          });
+        })
+        .catch(() => {
+          // Fallback
+          let { globalCount } = getCurrentCounts();
+          globalCount++;
+          updateCounter('global', globalCount);
+        });
+    };
+
+    // Count visitor after a short delay
+    const visitorTimer = setTimeout(countVisitor, 2000);
+
     return () => {
       if (greetingTimeoutRef.current) {
         clearTimeout(greetingTimeoutRef.current)
+      }
+      if (visitorTimer) {
+        clearTimeout(visitorTimer)
       }
       clearAllTimeouts()
     }
