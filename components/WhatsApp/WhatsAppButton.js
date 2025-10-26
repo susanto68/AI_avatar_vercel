@@ -62,7 +62,7 @@ export default function WhatsAppButton() {
   if (!isVisible) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className={`fixed right-4 z-50 ${isMobile ? 'top-20' : 'top-4'}`}>
       {/* Main WhatsApp Button */}
       <div className="relative">
         <button
@@ -99,7 +99,7 @@ export default function WhatsAppButton() {
 
         {/* Expanded Menu for Multiple Numbers */}
         {isExpanded && phoneNumbers.length > 1 && (
-          <div className="absolute right-16 top-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] animate-in slide-in-from-right duration-300">
+          <div className={`absolute bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] animate-in slide-in-from-right duration-300 ${isMobile ? 'right-16 top-0' : 'right-16 top-0'}`}>
             <div className="px-3 py-2 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-800">Choose Number</p>
             </div>
@@ -124,7 +124,7 @@ export default function WhatsAppButton() {
         )}
 
         {/* Tooltip */}
-        <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
+        <div className={`absolute top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap ${isMobile ? 'right-16' : 'right-16'}`}>
           Chat with us on WhatsApp
           <div className="absolute right-0 top-1/2 transform translate-x-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
         </div>
