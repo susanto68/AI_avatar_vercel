@@ -9,6 +9,7 @@ import { AVATAR_CONFIG } from '../lib/avatars'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { speakText, initSynth } from '../lib/speech'
 import { WELCOME_MESSAGES, UI_TEXT } from '../context/constant.js'
+import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 
 export default function Home() {
   const router = useRouter()
@@ -348,6 +349,8 @@ export default function Home() {
       
       <VoiceFallback onVoiceSupportChange={(supported) => console.log('Voice support:', supported)}>
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+          {/* WhatsApp Button */}
+          <WhatsAppButton />
           {/* Visitor Counters */}
           <div id="visitor-counters">
             <div className="visitor global">
