@@ -7,10 +7,10 @@ export default function WhatsAppButton() {
   const [showUrlFallback, setShowUrlFallback] = useState(false)
   const [fallbackUrl, setFallbackUrl] = useState('')
 
-  // Phone numbers
+  // Phone numbers - WhatsApp format: country code + number (no spaces or special characters)
   const phoneNumbers = [
-    { number: '7004043422', label: 'Primary', countryCode: '+91' },
-    { number: '9835379900', label: 'Secondary', countryCode: '+91' }
+    { number: '917004043422', label: 'Primary', countryCode: '+91', displayNumber: '7004043422' },
+    { number: '919835379900', label: 'Secondary', countryCode: '+91', displayNumber: '9835379900' }
   ]
 
   // Check if mobile device
@@ -44,35 +44,37 @@ export default function WhatsAppButton() {
     const message = encodeURIComponent(
       `Hi! I'm interested in your AI Avatar Assistant. Can you help me with more information?`
     )
-    // Add country code if not present
-    const fullNumber = phoneNumber.startsWith('91') ? phoneNumber : `91${phoneNumber}`
-    return `https://wa.me/${fullNumber}?text=${message}`
+    // Ensure phone number is in correct format (digits only, no spaces or +)
+    const cleanNumber = phoneNumber.replace(/[^\d]/g, '')
+    return `https://wa.me/${cleanNumber}?text=${message}`
   }
 
   // Handle WhatsApp click
   const handleWhatsAppClick = (phoneNumber) => {
     const url = getWhatsAppURL(phoneNumber)
-    console.log('📱 WhatsApp click:', { phoneNumber, url, isMobile })
-    
-    // For mobile, use direct navigation which works better
-    if (isMobile) {
-      // Direct navigation works best on mobile devices
-      window.location.href = url
-    } else {
-      // For desktop, use window.open
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
+    console.log('📱 WhatsApp click:', { 
+      originalNumber: phoneNumber, 
+      generatedURL: url, 
+      isMobile,
+      cleanNumber: phoneNumber.replace(/[^\d]/g, '')
+    })
     
     setIsExpanded(false)
+    
+    // Simple navigation to WhatsApp URL - the <a> tag will handle this naturally
+    // This is just for logging purposes
   }
 
   // Handle main button click
   const handleMainClick = () => {
+    console.log('🟢 WhatsApp button clicked, phoneNumbers.length:', phoneNumbers.length)
     if (phoneNumbers.length === 1) {
       // If only one number, directly open WhatsApp
+      console.log('📞 Only one number, opening directly')
       handleWhatsAppClick(phoneNumbers[0].number)
     } else {
       // If multiple numbers, toggle expansion
+      console.log('📋 Multiple numbers, toggling menu. Current expanded:', isExpanded, 'Setting to:', !isExpanded)
       setIsExpanded(!isExpanded)
     }
   }
@@ -117,15 +119,21 @@ export default function WhatsAppButton() {
 
         {/* Expanded Menu for Multiple Numbers */}
         {isExpanded && phoneNumbers.length > 1 && (
-          <div className={`absolute bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] animate-in slide-in-from-right duration-300 ${isMobile ? 'right-16 top-0' : 'right-16 top-0'}`}>
+          <div className={`absolute bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] animate-in slide-in-from-right duration-300 z-50 ${isMobile ? 'right-16 top-0' : 'right-16 top-0'}`}>
             <div className="px-3 py-2 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-800">Choose Number</p>
             </div>
             {phoneNumbers.map((phone, index) => (
-              <button
+              <a
                 key={index}
-                onClick={() => handleWhatsAppClick(phone.number)}
+                href={getWhatsAppURL(phone.number)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full px-3 py-2 text-left hover:bg-green-50 transition-colors duration-200 flex items-center gap-3"
+                onClick={() => {
+                  console.log('📱 Opening WhatsApp for number:', phone.number)
+                  setIsExpanded(false)
+                }}
               >
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                   <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -134,9 +142,9 @@ export default function WhatsAppButton() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">{phone.label}</p>
-                  <p className="text-xs text-gray-600">{phone.countryCode} {phone.number}</p>
+                  <p className="text-xs text-gray-600">{phone.countryCode} {phone.displayNumber || phone.number.replace(/^91/, '')}</p>
                 </div>
-              </button>
+              </a>
             ))}
           </div>
         )}
