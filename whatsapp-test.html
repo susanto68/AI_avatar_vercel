@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Button Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .whatsapp-button {
+            display: inline-block;
+            background: linear-gradient(45deg, #25D366, #128C7E);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        .whatsapp-button:hover {
+            transform: scale(1.05);
+        }
+        .url-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>WhatsApp Button Test</h1>
+        <p>Click the buttons below to test WhatsApp integration:</p>
+        
+        <h3>Primary Number (7004043422):</h3>
+        <a href="https://wa.me/917004043422?text=Hi!%20I'm%20interested%20in%20your%20AI%20Avatar%20Assistant.%20Can%20you%20help%20me%20with%20more%20information?" 
+           class="whatsapp-button" target="_blank">
+            📱 WhatsApp Primary
+        </a>
+        <div class="url-display">
+            https://wa.me/917004043422?text=Hi!%20I'm%20interested%20in%20your%20AI%20Avatar%20Assistant.%20Can%20you%20help%20me%20with%20more%20information?
+        </div>
+        
+        <h3>Secondary Number (9835379900):</h3>
+        <a href="https://wa.me/919835379900?text=Hi!%20I'm%20interested%20in%20your%20AI%20Avatar%20Assistant.%20Can%20you%20help%20me%20with%20more%20information?" 
+           class="whatsapp-button" target="_blank">
+            📱 WhatsApp Secondary
+        </a>
+        <div class="url-display">
+            https://wa.me/919835379900?text=Hi!%20I'm%20interested%20in%20your%20AI%20Avatar%20Assistant.%20Can%20you%20help%20me%20with%20more%20information?
+        </div>
+        
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click on either WhatsApp button above</li>
+            <li>It should open WhatsApp (web or app)</li>
+            <li>Check if the message is pre-filled correctly</li>
+            <li>Verify the phone number is correct</li>
+            <li>Send the message to test</li>
+        </ol>
+        
+        <h3>Expected Message:</h3>
+        <div class="url-display">
+            Hi! I'm interested in your AI Avatar Assistant. Can you help me with more information?
+        </div>
+    </div>
+</body>
+</html>

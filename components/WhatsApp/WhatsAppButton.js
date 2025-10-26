@@ -67,7 +67,7 @@ export default function WhatsAppButton() {
           onClick={handleMainClick}
           className={`
             group relative flex items-center justify-center
-            w-14 h-14 sm:w-16 sm:h-16
+            w-12 h-12 sm:w-14 sm:h-14
             bg-gradient-to-r from-green-500 to-green-600
             hover:from-green-600 hover:to-green-700
             rounded-full shadow-lg hover:shadow-xl
@@ -79,7 +79,7 @@ export default function WhatsAppButton() {
         >
           {/* WhatsApp Icon */}
           <svg
-            className="w-7 h-7 sm:w-8 sm:h-8 text-white transition-transform duration-300"
+            className="w-6 h-6 sm:w-7 sm:h-7 text-white transition-transform duration-300"
             fill="currentColor"
             viewBox="0 0 24 24"
           >
@@ -90,7 +90,7 @@ export default function WhatsAppButton() {
           <div className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-20"></div>
           
           {/* Notification Badge */}
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-bounce">
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-bounce">
             !
           </div>
         </button>
