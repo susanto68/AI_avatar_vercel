@@ -149,7 +149,6 @@ export default function AvatarChat() {
         .then(res => res.json())
         .then(data => {
           let isIndia = (data.country_code === "IN");
-          let { globalCount, indiaCount } = getCurrentCounts();
           
           // Send to API
           fetch('/api/visitor-counter', {
@@ -158,9 +157,7 @@ export default function AvatarChat() {
             body: JSON.stringify({
               countryCode: data.country_code,
               ipAddress: data.ip,
-              userAgent: navigator.userAgent,
-              currentGlobalCount: globalCount,
-              currentIndiaCount: indiaCount
+              userAgent: navigator.userAgent
             })
           })
           .then(res => res.json())

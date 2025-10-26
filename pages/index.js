@@ -172,9 +172,6 @@ export default function Home() {
               
               let isIndia = (data.country_code === "IN");
               
-              // Get current counts before sending to API
-              let { globalCount, indiaCount } = getCurrentCounts();
-              
               // Send visitor data to our API for proper tracking
               fetch('/api/visitor-counter', {
                 method: 'POST',
@@ -184,15 +181,13 @@ export default function Home() {
                 body: JSON.stringify({
                   countryCode: data.country_code,
                   ipAddress: data.ip,
-                  userAgent: navigator.userAgent,
-                  currentGlobalCount: globalCount,
-                  currentIndiaCount: indiaCount
+                  userAgent: navigator.userAgent
                 })
               })
               .then(res => res.json())
               .then(apiResponse => {
                 if (apiResponse.success) {
-                  console.log('✅ Visitor counted via API:', apiResponse.message);
+                  console.log('✅ Visitor counted via countapi.xyz:', apiResponse.message);
                   
                   // Update display with new counts from API
                   updateCounter('global', apiResponse.globalCount);
@@ -204,7 +199,7 @@ export default function Home() {
                     statusElement.innerHTML = `📍 ${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`;
                   }
                 } else {
-                  console.warn('⚠️ API counter failed, using local fallback');
+                  console.warn('⚠️ countapi.xyz failed, using fallback');
                   // Fallback to local counting
                   let { globalCount, indiaCount } = getCurrentCounts();
                   if (isIndia) {

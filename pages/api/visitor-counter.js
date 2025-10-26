@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { countryCode, ipAddress, userAgent, currentGlobalCount, currentIndiaCount } = req.body;
+    const { countryCode, ipAddress, userAgent } = req.body;
 
     // Get current date for daily tracking
     const today = new Date().toISOString().split('T')[0];
@@ -17,16 +17,47 @@ export default async function handler(req, res) {
     // Determine if visitor is from India
     const isIndia = countryCode === 'IN';
     
-    // Use the counts provided by the frontend (from localStorage) as base
-    // This ensures consistency between frontend and backend
-    let globalCount = parseInt(currentGlobalCount) || parseInt(process.env.GLOBAL_VISITOR_COUNT || '503');
-    let indiaCount = parseInt(currentIndiaCount) || parseInt(process.env.INDIA_VISITOR_COUNT || '2129');
+    // Use countapi.xyz for persistent global counters
+    const GLOBAL_COUNTER_KEY = 'ai-avatar-global-visitors';
+    const INDIA_COUNTER_KEY = 'ai-avatar-india-visitors';
     
-    // Increment appropriate counter
-    if (isIndia) {
-      indiaCount++;
-    } else {
-      globalCount++;
+    let globalCount, indiaCount;
+    
+    try {
+      // Get current counts from countapi.xyz
+      const [globalResponse, indiaResponse] = await Promise.all([
+        fetch(`https://api.countapi.xyz/get/susanto68/${GLOBAL_COUNTER_KEY}`),
+        fetch(`https://api.countapi.xyz/get/susanto68/${INDIA_COUNTER_KEY}`)
+      ]);
+      
+      const globalData = await globalResponse.json();
+      const indiaData = await indiaResponse.json();
+      
+      globalCount = globalData.value || 503; // Fallback to 503 if not found
+      indiaCount = indiaData.value || 2129;  // Fallback to 2129 if not found
+      
+      // Increment appropriate counter
+      if (isIndia) {
+        indiaCount++;
+        await fetch(`https://api.countapi.xyz/hit/susanto68/${INDIA_COUNTER_KEY}`);
+      } else {
+        globalCount++;
+        await fetch(`https://api.countapi.xyz/hit/susanto68/${GLOBAL_COUNTER_KEY}`);
+      }
+      
+    } catch (apiError) {
+      console.warn('⚠️ countapi.xyz failed, using fallback:', apiError.message);
+      
+      // Fallback to environment variables or defaults
+      globalCount = parseInt(process.env.GLOBAL_VISITOR_COUNT || '503');
+      indiaCount = parseInt(process.env.INDIA_VISITOR_COUNT || '2129');
+      
+      // Increment appropriate counter
+      if (isIndia) {
+        indiaCount++;
+      } else {
+        globalCount++;
+      }
     }
 
     // Log visitor information (this will appear in Vercel logs)
@@ -38,7 +69,8 @@ export default async function handler(req, res) {
       userAgent: userAgent?.substring(0, 100),
       globalCount,
       indiaCount,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: 'countapi.xyz'
     });
 
     // Return updated counts
@@ -47,7 +79,7 @@ export default async function handler(req, res) {
       globalCount,
       indiaCount,
       message: `${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`,
-      note: 'Counts are managed by frontend localStorage for consistency'
+      note: 'Counts stored globally using countapi.xyz'
     });
 
   } catch (error) {
