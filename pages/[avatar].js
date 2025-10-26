@@ -17,6 +17,7 @@ import InstallPrompt from '../components/PWA/InstallPrompt'
 import { ERROR_MESSAGES, UI_TEXT, getAvatarGreeting } from '../context/constant.js'
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback'
+import TextInputBox from '../components/ChatInterface/TextInputBox'
 
 export default function AvatarChat() {
   const router = useRouter()
@@ -235,17 +236,16 @@ export default function AvatarChat() {
     }
   }, [avatar, avatarConfig, sessionId])
 
-  // Handle speech recognition result - simplified like working example
+  // Handle speech recognition result - don't auto-submit, let user review first
   useEffect(() => {
     if (transcript && !isListening) {
       console.log('🎤 Speech recognized:', transcript)
       setCurrentText(transcript)
       setNoSpeechDetected(false)
-      // Call API with transcript immediately
-      handleApiCall(transcript)
+      // Don't auto-call API - let user review the question in text box first
       resetTranscript()
     }
-  }, [transcript, isListening, resetTranscript, handleApiCall])
+  }, [transcript, isListening, resetTranscript])
 
   // Handle speech recognition errors
   useEffect(() => {
@@ -397,6 +397,15 @@ export default function AvatarChat() {
                 <span className="text-lg">🎤</span>
                 <span className="font-bold">{isListening ? 'STOP' : 'ASK'}</span>
               </button>
+            </div>
+
+            {/* Text Input Box */}
+            <div className="px-2 mb-3">
+              <TextInputBox 
+                onSubmit={handleApiCall}
+                isProcessing={isProcessing}
+                placeholder={`Ask ${avatarConfig.name} anything about ${avatarConfig.domain}...`}
+              />
             </div>
 
             {/* Status Messages - Compact */}

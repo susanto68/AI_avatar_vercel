@@ -1,9 +1,13 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
 import { getCompleteSystemPrompt } from '../../context/prompts.js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
-// Initialize Google Gemini client
+// Initialize AI clients
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
@@ -757,6 +761,42 @@ const getSessionContext = (avatarType, sessionId) => {
   return sessionContexts.get(key)
 }
 
+// Call ChatGPT API
+const callChatGPT = async (prompt, avatarType, sessionId) => {
+  const systemPrompt = getCachedSystemPrompt(avatarType)
+  const history = getConversationHistory(avatarType, sessionId).slice(-5)
+  
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history.map(msg => ({ role: msg.role, content: msg.content })),
+    { role: 'user', content: prompt }
+  ]
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-3.5-turbo',
+    messages: messages,
+    max_tokens: 2048,
+    temperature: 0.7,
+  })
+
+  return response.choices[0].message.content
+}
+
+// Call Gemini API
+const callGemini = async (prompt, avatarType, sessionId) => {
+  const chat = getSessionContext(avatarType, sessionId)
+  const systemPrompt = getCachedSystemPrompt(avatarType)
+  
+  const fullPrompt = `${systemPrompt}
+
+User Question: ${prompt}
+
+Please provide a comprehensive, educational response with examples and step-by-step explanations when appropriate.`
+
+  const result = await chat.sendMessage(fullPrompt)
+  return result.response.text().trim()
+}
+
 // Clean up old sessions (older than 1 hour instead of 24 hours)
 const cleanupOldSessions = () => {
   const now = Date.now()
@@ -893,9 +933,12 @@ export default async function handler(req, res) {
       })
     }
 
-    // Check for Gemini API key
-    if (!process.env.GEMINI_API_KEY) {
-      console.error('❌ No Gemini API key found. Please set GEMINI_API_KEY environment variable')
+    // Check for API keys
+    const hasGeminiKey = !!process.env.GEMINI_API_KEY
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY
+    
+    if (!hasGeminiKey && !hasOpenAIKey) {
+      console.error('❌ No API keys found. Please set GEMINI_API_KEY or OPENAI_API_KEY environment variables')
       
       // Generate intelligent fallback response
       const fallbackResponse = generateIntelligentFallback(avatarType, prompt)
@@ -910,19 +953,14 @@ export default async function handler(req, res) {
         relatedArticles,
         relatedVideos,
         success: false,
-        error: 'AI service configuration error - API key missing',
+        error: 'AI service configuration error - API keys missing',
         fallback: true
       })
     }
 
-    console.log('🔑 Using Google Gemini API')
-
-    // Log successful validation
-    console.log('API Request validated successfully:', {
-      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
-      avatarType,
-      avatarName: avatarConfig.name,
-      sessionId
+    console.log('🔑 Available APIs:', { 
+      gemini: hasGeminiKey, 
+      openai: hasOpenAIKey 
     })
 
     // Get conversation history for context (limited to last 5 messages for performance)
@@ -931,34 +969,56 @@ export default async function handler(req, res) {
     // Add user message to history
     addToConversationHistory(avatarType, sessionId, 'user', prompt)
 
-    // Get cached system prompt for better performance
-    const systemPrompt = getCachedSystemPrompt(avatarType)
-    
-    // Get or create Gemini chat session
-    const chat = getSessionContext(avatarType, sessionId)
-    
-    // Simplified prompt construction for better performance
-    const fullPrompt = `${systemPrompt}
+    let aiResponse = ''
+    let apiUsed = 'none'
+    let apiError = null
 
-User Question: ${prompt}
+    // Try APIs in order of preference (Gemini first, then ChatGPT)
+    if (hasGeminiKey) {
+      try {
+        console.log('🤖 Trying Gemini API first...')
+        aiResponse = await Promise.race([
+          callGemini(prompt, avatarType, sessionId),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Gemini API timeout')), 25000)
+          )
+        ])
+        apiUsed = 'gemini'
+        console.log('✅ Gemini API success')
+      } catch (error) {
+        console.warn('⚠️ Gemini API failed:', error.message)
+        apiError = error.message
+      }
+    }
 
-Please provide a comprehensive, educational response with examples and step-by-step explanations when appropriate.`
+    // Fallback to ChatGPT if Gemini failed or not available
+    if (!aiResponse && hasOpenAIKey) {
+      try {
+        console.log('🤖 Trying ChatGPT API as fallback...')
+        aiResponse = await Promise.race([
+          callChatGPT(prompt, avatarType, sessionId),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('ChatGPT API timeout')), 25000)
+          )
+        ])
+        apiUsed = 'chatgpt'
+        console.log('✅ ChatGPT API success')
+      } catch (error) {
+        console.warn('⚠️ ChatGPT API failed:', error.message)
+        apiError = error.message
+      }
+    }
 
-    console.log(`🔗 Calling Gemini API with optimized context...`)
-
-    // Call Gemini API with timeout
-    const result = await Promise.race([
-      chat.sendMessage(fullPrompt),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('API timeout')), 25000) // 25 second timeout
-      )
-    ])
-    
-    const aiResponse = result.response.text().trim()
+    // If both APIs failed, use intelligent fallback
+    if (!aiResponse) {
+      console.log('🔄 Both APIs failed, using intelligent fallback')
+      aiResponse = generateIntelligentFallback(avatarType, prompt)
+      apiUsed = 'fallback'
+    }
 
     if (!aiResponse) {
-      console.error('❌ No response received from Gemini')
-      throw new Error('No response received from AI service')
+      console.error('❌ No response generated from any source')
+      throw new Error('No response received from any AI service')
     }
 
     // Add AI response to history
@@ -1028,6 +1088,7 @@ Please provide a comprehensive, educational response with examples and step-by-s
       part2Length: part2.length,
       avatarType,
       sessionId,
+      apiUsed,
       historyLength: history.length + 2, // +2 for current user and AI messages
       articlesCount: relatedArticles.length,
       videosCount: relatedVideos.length
@@ -1040,7 +1101,9 @@ Please provide a comprehensive, educational response with examples and step-by-s
       sessionId,
       relatedArticles,
       relatedVideos,
-      success: true
+      success: true,
+      apiUsed,
+      apiError: apiError || null
     })
 
   } catch (error) {
