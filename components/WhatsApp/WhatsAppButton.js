@@ -36,7 +36,9 @@ export default function WhatsAppButton() {
     const message = encodeURIComponent(
       `Hi! I'm interested in your AI Avatar Assistant. Can you help me with more information?`
     )
-    return `https://wa.me/${phoneNumber}?text=${message}`
+    // Add country code if not present
+    const fullNumber = phoneNumber.startsWith('91') ? phoneNumber : `91${phoneNumber}`
+    return `https://wa.me/${fullNumber}?text=${message}`
   }
 
   // Handle WhatsApp click
