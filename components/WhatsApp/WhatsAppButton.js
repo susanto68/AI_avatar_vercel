@@ -4,6 +4,8 @@ export default function WhatsAppButton() {
   const [isVisible, setIsVisible] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [showUrlFallback, setShowUrlFallback] = useState(false)
+  const [fallbackUrl, setFallbackUrl] = useState('')
 
   // Phone numbers
   const phoneNumbers = [
@@ -14,7 +16,13 @@ export default function WhatsAppButton() {
   // Check if mobile device
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768)
+      const isMobileDevice = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setIsMobile(isMobileDevice)
+      console.log('📱 Mobile detection:', { 
+        width: window.innerWidth, 
+        userAgent: navigator.userAgent, 
+        isMobile: isMobileDevice 
+      })
     }
     
     checkMobile()
@@ -44,7 +52,17 @@ export default function WhatsAppButton() {
   // Handle WhatsApp click
   const handleWhatsAppClick = (phoneNumber) => {
     const url = getWhatsAppURL(phoneNumber)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    console.log('📱 WhatsApp click:', { phoneNumber, url, isMobile })
+    
+    // For mobile, use direct navigation which works better
+    if (isMobile) {
+      // Direct navigation works best on mobile devices
+      window.location.href = url
+    } else {
+      // For desktop, use window.open
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+    
     setIsExpanded(false)
   }
 
