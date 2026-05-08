@@ -169,6 +169,7 @@ export default function AvatarChat() {
               console.log('✅ Avatar page visitor counted:', apiResponse.message);
             } else {
               // Fallback
+              let { globalCount, indiaCount } = getCurrentCounts();
               if (isIndia) {
                 indiaCount++;
                 updateCounter('india', indiaCount);
@@ -180,6 +181,7 @@ export default function AvatarChat() {
           })
           .catch(() => {
             // Fallback
+            let { globalCount, indiaCount } = getCurrentCounts();
             if (isIndia) {
               indiaCount++;
               updateCounter('india', indiaCount);

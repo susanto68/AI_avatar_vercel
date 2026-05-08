@@ -176,13 +176,6 @@
         window.addEventListener('online', () => {
             window.location.reload();
         });
-        
-        // Auto-retry every 10 seconds
-        setInterval(() => {
-            if (navigator.onLine) {
-                window.location.reload();
-            }
-        }, 10000);
     </script>
 </body>
 </html>

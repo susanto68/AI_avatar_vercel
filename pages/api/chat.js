@@ -9,6 +9,16 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite,gemini-2.5-flash,gemini-flash-latest')
+  .split(',')
+  .map((model) => model.trim())
+  .filter(Boolean)
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 450)
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 9000)
+const AI_HISTORY_LIMIT = Number(process.env.AI_HISTORY_LIMIT || 2)
+
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
 const sessionContexts = new Map()
@@ -535,6 +545,87 @@ const generateIntelligentFallback = (avatarType, prompt) => {
   
   // Fallback to the original intelligent responses if no offline knowledge
   const fallbackResponses = {
+    'computer-teacher': {
+      'javascript': `JavaScript is a programming language used to make websites interactive. HTML gives a page structure, CSS gives it style, and JavaScript adds behavior.
+
+Key JavaScript ideas include:
+• Variables - store values like names, numbers, and settings
+• Functions - reusable blocks of code
+• Events - actions like clicks, typing, or page loading
+• DOM manipulation - changing page content with code
+• APIs - sending and receiving data from servers
+
+Example:
+\`\`\`javascript
+function greet(name) {
+  return "Hello, " + name + "!";
+}
+
+console.log(greet("Student"));
+\`\`\`
+
+JavaScript is used in frontend apps with React and Next.js, backend servers with Node.js, mobile apps, browser extensions, and many automation tools.`,
+      'html': `HTML stands for HyperText Markup Language. It gives a web page its structure by describing headings, paragraphs, links, images, forms, and other content.
+
+Key HTML concepts include:
+• Elements - building blocks like headings, buttons, and inputs
+• Tags - markup such as <h1>, <p>, and <button>
+• Attributes - extra information like href, src, class, and id
+• Semantic HTML - meaningful tags that improve accessibility and SEO
+
+Example:
+\`\`\`html
+<h1>My Page</h1>
+<p>Welcome to my website.</p>
+<button>Click me</button>
+\`\`\``,
+      'css': `CSS stands for Cascading Style Sheets. It controls how a web page looks, including colors, spacing, fonts, layout, and responsive design.
+
+Key CSS concepts include:
+• Selectors - choose which elements to style
+• Properties - define styles like color, margin, and display
+• Flexbox and Grid - create layouts
+• Media queries - adapt designs for mobile and desktop
+• Animations - add motion and transitions
+
+Example:
+\`\`\`css
+button {
+  background: blue;
+  color: white;
+  padding: 12px 16px;
+}
+\`\`\``,
+      'react': `React is a JavaScript library for building user interfaces. It lets developers create reusable components and update the screen efficiently when data changes.
+
+Key React concepts include:
+• Components - reusable UI pieces
+• Props - data passed into components
+• State - data that changes over time
+• Hooks - functions like useState and useEffect
+• JSX - HTML-like syntax inside JavaScript
+
+Example:
+\`\`\`javascript
+import { useState } from "react";
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+\`\`\``,
+      'default': `Computer science is the study of computers, software, data, and problem-solving. It teaches you how to write programs, build applications, understand algorithms, and create technology.
+
+Key areas in computer science include:
+• Programming - writing instructions for computers
+• Web development - building websites and apps
+• Data structures - organizing information efficiently
+• Algorithms - step-by-step problem solving
+• Databases - storing and retrieving data
+• AI and automation - making systems smarter
+
+You can ask me about JavaScript, HTML, CSS, React, Next.js, Python, Java, algorithms, debugging, or how to build a project.`
+    },
     'biology-teacher': {
       'brain': `The brain is the command center of the human body, controlling all our thoughts, movements, and bodily functions. It's made up of billions of nerve cells called neurons that communicate through electrical and chemical signals.
 
@@ -670,7 +761,13 @@ Key areas in English include:
   }
   
   // Get the specific avatar responses
-  const avatarResponses = fallbackResponses[avatarType] || fallbackResponses['biology-teacher']
+  const avatarConfig = AVATAR_CONFIG[avatarType]
+  const genericAvatarFallback = {
+    default: avatarConfig
+      ? `${avatarConfig.name} can help you with ${avatarConfig.domain}. Please ask your question again with a little more detail, and I will explain it step by step with simple examples.`
+      : 'Please ask your question again with a little more detail, and I will explain it step by step with simple examples.'
+  }
+  const avatarResponses = fallbackResponses[avatarType] || genericAvatarFallback
   
   // Check if we have a specific response for the prompt
   const promptLower = prompt.toLowerCase()
@@ -681,7 +778,7 @@ Key areas in English include:
   }
   
   // Return default response for the avatar
-  return avatarResponses.default || avatarResponses['biology-teacher'].default
+  return avatarResponses.default || genericAvatarFallback.default
 }
 
 // Helper function to parse JSON body with multiple fallbacks
@@ -748,7 +845,7 @@ const addToConversationHistory = (avatarType, sessionId, role, content) => {
 const getSessionContext = (avatarType, sessionId) => {
   const key = `${avatarType}-${sessionId}`
   if (!sessionContexts.has(key)) {
-    sessionContexts.set(key, genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' }).startChat({
+    sessionContexts.set(key, genAI.getGenerativeModel({ model: GEMINI_MODELS[0] }).startChat({
       history: [],
       generationConfig: {
         maxOutputTokens: 2048, // Reduced from 4096 for faster responses
@@ -764,7 +861,7 @@ const getSessionContext = (avatarType, sessionId) => {
 // Call ChatGPT API
 const callChatGPT = async (prompt, avatarType, sessionId) => {
   const systemPrompt = getCachedSystemPrompt(avatarType)
-  const history = getConversationHistory(avatarType, sessionId).slice(-5)
+  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
   
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -773,9 +870,9 @@ const callChatGPT = async (prompt, avatarType, sessionId) => {
   ]
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: OPENAI_MODEL,
     messages: messages,
-    max_tokens: 2048,
+    max_tokens: AI_MAX_OUTPUT_TOKENS,
     temperature: 0.7,
   })
 
@@ -784,17 +881,46 @@ const callChatGPT = async (prompt, avatarType, sessionId) => {
 
 // Call Gemini API
 const callGemini = async (prompt, avatarType, sessionId) => {
-  const chat = getSessionContext(avatarType, sessionId)
   const systemPrompt = getCachedSystemPrompt(avatarType)
+  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
   
   const fullPrompt = `${systemPrompt}
 
+Recent Conversation:
+${history.map((msg) => `${msg.role}: ${msg.content}`).join('\n') || 'No previous messages.'}
+
 User Question: ${prompt}
 
-Please provide a comprehensive, educational response with examples and step-by-step explanations when appropriate.`
+Answer quickly in 3-5 short bullet points or short paragraphs. Use simple words. Include one compact code example only when useful. Do not add long introductions or long resource lists.`
 
-  const result = await chat.sendMessage(fullPrompt)
-  return result.response.text().trim()
+  const errors = []
+
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
+          temperature: 0.45,
+          topP: 0.8,
+          topK: 40,
+        },
+      })
+
+      const result = await model.generateContent(fullPrompt)
+      const text = result.response.text().trim()
+
+      if (text) {
+        return { text, modelName }
+      }
+
+      errors.push(`${modelName}: empty response`)
+    } catch (error) {
+      errors.push(`${modelName}: ${error.message}`)
+    }
+  }
+
+  throw new Error(errors.join(' | '))
 }
 
 // Clean up old sessions (older than 1 hour instead of 24 hours)
@@ -963,8 +1089,8 @@ export default async function handler(req, res) {
       openai: hasOpenAIKey 
     })
 
-    // Get conversation history for context (limited to last 5 messages for performance)
-    const history = getConversationHistory(avatarType, sessionId).slice(-5)
+    // Get conversation history for context (limited for faster responses)
+    const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
     
     // Add user message to history
     addToConversationHistory(avatarType, sessionId, 'user', prompt)
@@ -977,13 +1103,14 @@ export default async function handler(req, res) {
     if (hasGeminiKey) {
       try {
         console.log('🤖 Trying Gemini API first...')
-        aiResponse = await Promise.race([
+        const geminiResponse = await Promise.race([
           callGemini(prompt, avatarType, sessionId),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Gemini API timeout')), 25000)
+            setTimeout(() => reject(new Error('Gemini API timeout')), AI_TIMEOUT_MS)
           )
         ])
-        apiUsed = 'gemini'
+        aiResponse = geminiResponse.text
+        apiUsed = `gemini:${geminiResponse.modelName}`
         console.log('✅ Gemini API success')
       } catch (error) {
         console.warn('⚠️ Gemini API failed:', error.message)
@@ -998,7 +1125,7 @@ export default async function handler(req, res) {
         aiResponse = await Promise.race([
           callChatGPT(prompt, avatarType, sessionId),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('ChatGPT API timeout')), 25000)
+            setTimeout(() => reject(new Error('ChatGPT API timeout')), AI_TIMEOUT_MS)
           )
         ])
         apiUsed = 'chatgpt'

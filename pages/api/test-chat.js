@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   console.log('Method:', req.method)
   console.log('Environment:', process.env.VERCEL_ENV || 'local')
   console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY)
-  console.log('GEMINI_API_KEY length:', process.env.GEMINI_API_KEY?.length || 0)
   console.log('========================')
 
   try {
@@ -22,8 +21,6 @@ export default async function handler(req, res) {
       message: 'Test API is working',
       environment: process.env.VERCEL_ENV || 'local',
       hasApiKey: !!process.env.GEMINI_API_KEY,
-      apiKeyLength: process.env.GEMINI_API_KEY?.length || 0,
-      apiKeyStart: process.env.GEMINI_API_KEY?.substring(0, 10) || 'not found',
       allEnvVars: Object.keys(process.env).filter(key => key.includes('GEMINI')),
       timestamp: new Date().toISOString(),
       method: req.method,

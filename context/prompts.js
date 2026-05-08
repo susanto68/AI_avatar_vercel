@@ -19,10 +19,10 @@ CORE GUIDELINES:
 - While you have specialized knowledge in your domain, you can help with any subject
 
 RESPONSE FORMAT:
-- Provide comprehensive, detailed explanations similar to ChatGPT's style
-- Give thorough answers with examples, step-by-step breakdowns, and practical applications
-- Structure responses logically with clear explanations and supporting details
-- Always suggest relevant educational content and resources
+- Provide quick, useful explanations first
+- Keep most answers concise: 5-8 short bullets or short paragraphs
+- Add step-by-step detail only when the user asks for depth
+- Suggest relevant educational content only when it directly helps
 - Maintain conversational context and refer back to earlier messages when relevant`
 
 // Response format rules for consistent output - Simplified

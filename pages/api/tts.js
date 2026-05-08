@@ -34,36 +34,48 @@ export default async function handler(req, res) {
     // Add timeout and retry logic for network issues
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    let audioContent = null
 
     try {
       // Choose Hindi male voice candidates when applicable
       const isHindi = (lang && typeof lang === 'string' && lang.toLowerCase().startsWith('hi')) || avatarType === 'hindi-teacher'
       const voiceCandidates = isHindi
-        ? ['hi-IN-Neural2-D', 'hi-IN-Standard-D', 'hi-IN-Standard-B', 'hi-IN-Standard-A']
-        : ['en-US-Standard-A']
+        ? ['Puck', 'Charon', 'Kore']
+        : ['Charon', 'Puck', 'Kore']
 
       console.log('🎤 Calling Gemini TTS API with text:', text.substring(0, 50) + '...')
 
-      let audioContent = null
       let lastError = null
 
       for (const candidate of voiceCandidates) {
         try {
           const requestBody = {
-            responseModality: "audio",
-            speechConfig: {
-              voice: { name: candidate },
-              audioEncoding: "MP3"
-            },
-            prompt: text
+            contents: [{
+              parts: [{
+                text: `Say clearly and slowly: ${text}`
+              }]
+            }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: candidate
+                  }
+                }
+              }
+            }
           }
           console.log(`🎤 Attempting voice: ${candidate}`)
 
           const geminiResponse = await fetch(
-            `https://api.ai.google/v1/models/gemini-2.5-flash-preview-tts:generate?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': geminiApiKey
+              },
               body: JSON.stringify(requestBody),
               signal: controller.signal
             }
@@ -86,7 +98,7 @@ export default async function handler(req, res) {
           }
 
           const data = await geminiResponse.json()
-          audioContent = data.audioContent
+          audioContent = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
           if (audioContent) {
             break
           }

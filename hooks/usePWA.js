@@ -19,6 +19,10 @@ export const usePWA = () => {
 
     // Check for service worker updates
     const checkForUpdates = async () => {
+      if (process.env.NODE_ENV === 'development') {
+        return
+      }
+
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.getRegistration()
@@ -40,6 +44,10 @@ export const usePWA = () => {
 
     // Register service worker
     const registerServiceWorker = async () => {
+      if (process.env.NODE_ENV === 'development') {
+        return
+      }
+
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.register('/sw.js')
