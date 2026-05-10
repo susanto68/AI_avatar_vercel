@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { AVATAR_CONFIG } from '../lib/avatars'
-import { initSynth, speakText, stopSpeaking, pauseSpeaking, resumeSpeaking } from '../lib/speech'
+import { initSynth, speakText, stopSpeaking } from '../lib/speech'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { usePWA } from '../hooks/usePWA'
 import { generateContentSuggestions } from '../lib/contentSuggestions'
@@ -43,6 +43,8 @@ export default function AvatarChat() {
 
   // State variables
   const [currentText, setCurrentText] = useState('')
+  const [questionText, setQuestionText] = useState('')
+  const [lastQuestion, setLastQuestion] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isProcessing, setApiProcessing] = useState(false)
@@ -222,32 +224,53 @@ export default function AvatarChat() {
 
   // Handle copy to clipboard
   const handleCopyAnswer = async () => {
-    if (!currentText || currentText.trim() === '') {
-      alert('No text to copy')
+    const copyBlocks = []
+
+    if (lastQuestion.trim()) {
+      copyBlocks.push(`Question:\n${lastQuestion.trim()}`)
+    }
+
+    if (currentText.trim()) {
+      copyBlocks.push(`Answer:\n${currentText.trim()}`)
+    }
+
+    if (codeContent.trim()) {
+      copyBlocks.push(`Code:\n${codeContent.trim()}`)
+    }
+
+    if (copyBlocks.length === 0) {
+      alert('No question or answer to copy')
       return
     }
-    
+
     try {
-      await navigator.clipboard.writeText(currentText)
-      alert('✅ Answer copied to clipboard!')
+      await navigator.clipboard.writeText(copyBlocks.join('\n\n'))
+      alert('Question and answer copied to clipboard!')
     } catch (error) {
       console.error('Copy failed:', error)
-      alert('❌ Copy failed')
+      alert('Copy failed')
     }
   }
 
-  // Test speech function for mobile debugging
-  const testSpeech = () => {
-    if (currentText) {
-      console.log('🧪 Testing speech with text:', currentText.substring(0, 50) + '...')
-      setIsSpeaking(true)
+  // Read the latest answer from the beginning
+  const replayAnswer = () => {
+    if (!currentText.trim()) return
+
+    console.log('Replaying answer from beginning:', currentText.substring(0, 50) + '...')
+    stopSpeaking()
+    setIsSpeaking(true)
+    setIsPaused(false)
+    speakText(currentText, () => {
+      console.log('Replay finished')
+      setIsSpeaking(false)
       setIsPaused(false)
-      speakText(currentText.substring(0, 100), () => {
-        console.log('✅ Test speech finished')
-        setIsSpeaking(false)
-        setIsPaused(false)
-      }, { avatarType: avatar })
-    }
+    }, { avatarType: avatar })
+  }
+
+  const stopAnswerReading = () => {
+    stopSpeaking()
+    setIsSpeaking(false)
+    setIsPaused(false)
   }
 
   // Handle start listening
@@ -265,13 +288,17 @@ export default function AvatarChat() {
   // API call function - simplified like the working example
   const handleApiCall = useCallback(async (prompt) => {
     if (!prompt || !avatarConfig) return
-    
+
+    const cleanPrompt = prompt.trim()
+
+    setLastQuestion(cleanPrompt)
+    setQuestionText('')
     setApiProcessing(true)
     setApiError(null)
     setShowError(false)
     
     try {
-      console.log('🚀 Making API call to /api/chat with:', { prompt: prompt.substring(0, 50) + '...', avatarType: avatar, sessionId })
+      console.log('🚀 Making API call to /api/chat with:', { prompt: cleanPrompt.substring(0, 50) + '...', avatarType: avatar, sessionId })
       
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -279,7 +306,7 @@ export default function AvatarChat() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt,
+          prompt: cleanPrompt,
           avatarType: avatar,
           sessionId
         })
@@ -341,7 +368,7 @@ export default function AvatarChat() {
   useEffect(() => {
     if (transcript && !isListening) {
       console.log('🎤 Speech recognized:', transcript)
-      setCurrentText(transcript)
+      setQuestionText(transcript)
       setNoSpeechDetected(false)
       // Don't auto-call API - let user review the question in text box first
       resetTranscript()
@@ -442,38 +469,28 @@ export default function AvatarChat() {
               {/* Play/Pause Button */}
               <button
                 onClick={() => {
-                  if (isSpeaking && !isPaused) {
-                    // Pause speech
-                    const success = pauseSpeaking()
-                    if (success) {
-                      setIsPaused(true)
-                      console.log('🎤 Speech paused')
-                    }
-                  } else if (isPaused) {
-                    // Resume speech
-                    const success = resumeSpeaking()
-                    if (success) {
-                      setIsPaused(false)
-                      console.log('🎤 Speech resumed')
-                    }
+                  if (isSpeaking) {
+                    stopAnswerReading()
+                  } else {
+                    replayAnswer()
                   }
                 }}
                 disabled={!currentText}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold transition-all duration-200 shadow-md hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm ${
-                  isSpeaking && !isPaused
+                  currentText && isSpeaking && !isPaused
                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
-                title={isSpeaking && !isPaused ? 'Pause speech' : 'Play speech'}
+                title={currentText && isSpeaking && !isPaused ? 'Pause answer reading' : 'Read answer from beginning'}
               >
-                <span className="text-base">{isSpeaking && !isPaused ? '⏸' : '▶️'}</span>
-                <span className="font-bold">{isSpeaking && !isPaused ? 'PAUSE' : 'PLAY'}</span>
+                <span className="text-base">{currentText && isSpeaking && !isPaused ? '⏸' : '▶️'}</span>
+                <span className="font-bold">{currentText && isSpeaking && !isPaused ? 'PAUSE' : 'PLAY'}</span>
               </button>
 
               {/* Copy Answer Button */}
               <button
                 onClick={handleCopyAnswer}
-                disabled={!currentText}
+                disabled={!lastQuestion && !currentText}
                 className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-all duration-200 shadow-md hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                 title="Copy answer to clipboard"
               >
@@ -508,6 +525,8 @@ export default function AvatarChat() {
                 onSubmit={handleApiCall}
                 isProcessing={isProcessing}
                 placeholder={`Ask ${avatarConfig.name} anything about ${avatarConfig.domain}...`}
+                value={questionText}
+                onChange={setQuestionText}
               />
             </div>
 
@@ -584,3 +603,5 @@ export default function AvatarChat() {
     </>
   )
 }
+
+

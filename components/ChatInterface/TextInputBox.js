@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 
 export default function TextInputBox({ 
   onSubmit, 
   isProcessing, 
   placeholder = "Type your question here or use voice input...",
-  className = ""
+  className = "",
+  value,
+  onChange
 }) {
   const [inputText, setInputText] = useState('')
   const [isVoiceMode, setIsVoiceMode] = useState(false)
@@ -24,18 +26,27 @@ export default function TextInputBox({
     isSupported: recognitionSupported
   } = useSpeechRecognition()
 
+  const displayText = value !== undefined ? value : inputText
+  const updateInputText = useCallback((nextText) => {
+    if (onChange) {
+      onChange(nextText)
+    } else {
+      setInputText(nextText)
+    }
+  }, [onChange])
+
   // Handle transcript updates
   useEffect(() => {
     if (transcript && isListening) {
       // Show real-time transcript in text area while listening
-      setInputText(transcript)
+      updateInputText(transcript)
     } else if (transcript && !isListening) {
       // Final transcript - keep it in text area and don't auto-submit
-      setInputText(transcript)
+      updateInputText(transcript)
       setIsVoiceMode(false)
       // Don't auto-submit, let user review and manually submit
     }
-  }, [transcript, isListening])
+  }, [transcript, isListening, updateInputText])
 
   // Clear input when starting new voice session
   const handleVoiceToggle = async () => {
@@ -45,7 +56,7 @@ export default function TextInputBox({
       setIsVoiceMode(false)
     } else {
       // Start listening - clear previous input
-      setInputText('')
+      updateInputText('')
       try {
         if (!recognitionSupported) {
           alert('Speech recognition not supported in this browser')
@@ -69,10 +80,10 @@ export default function TextInputBox({
 
   // Handle form submission
   const handleSubmit = (text = null) => {
-    const textToSubmit = text || inputText.trim()
+    const textToSubmit = text || displayText.trim()
     if (textToSubmit && !isProcessing) {
       onSubmit(textToSubmit)
-      setInputText('')
+      updateInputText('')
       resetTranscript()
     }
   }
@@ -91,7 +102,7 @@ export default function TextInputBox({
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px'
     }
-  }, [inputText])
+  }, [displayText])
 
   return (
     <div className={`w-full ${className}`}>
@@ -99,8 +110,8 @@ export default function TextInputBox({
       <div className="relative">
         <textarea
           ref={textareaRef}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          value={displayText}
+          onChange={(e) => updateInputText(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder={isListening ? "🎤 Listening... Speak now" : placeholder}
           disabled={isProcessing}
@@ -144,9 +155,9 @@ export default function TextInputBox({
       <div className="flex justify-center mt-3">
         <button
           onClick={() => handleSubmit()}
-          disabled={!inputText.trim() || isProcessing}
+          disabled={!displayText.trim() || isProcessing}
           className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 ${
-            inputText.trim() && !isProcessing
+            displayText.trim() && !isProcessing
               ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:scale-105'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}

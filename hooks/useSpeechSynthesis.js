@@ -207,10 +207,13 @@ export const useSpeechSynthesis = () => {
 
       const utterance = new window.SpeechSynthesisUtterance(cleanedText)
       
-      // Set voice characteristics for deep male voice and clarity
-      utterance.pitch = 0.8  // Deep tone
-      utterance.rate = 0.85  // Slower for clearer articulation (was 0.95)
-      utterance.volume = 0.8
+      const isHindiVoice = language === 'hi' || language === 'hi-IN' || avatarType === 'hindi-teacher'
+
+      // Natural, deep teacher-like voice for student comprehension.
+      utterance.pitch = 0.76
+      utterance.rate = isHindiVoice ? 0.86 : 0.9
+      utterance.volume = 1
+      utterance.lang = isHindiVoice ? 'hi-IN' : 'en-IN'
 
       console.log('🎤 Created utterance with settings:', {
         rate: utterance.rate,

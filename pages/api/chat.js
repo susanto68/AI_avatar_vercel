@@ -15,8 +15,8 @@ const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite,gemini
   .filter(Boolean)
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
-const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 450)
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 9000)
+const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 300)
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 7000)
 const AI_HISTORY_LIMIT = Number(process.env.AI_HISTORY_LIMIT || 2)
 
 // In-memory conversation storage with enhanced session management
@@ -380,38 +380,133 @@ const parseRelatedContent = (contentText, type) => {
   return items.slice(0, type === 'article' ? 4 : 3) // Limit articles to 4, videos to 3
 }
 
-// Helper function to generate fallback articles
-const generateFallbackArticles = (avatarType) => {
-  const fallbackArticles = {
+const getSuggestionTopic = (avatarType, prompt = '', answer = '') => {
+  const text = `${prompt} ${answer}`.toLowerCase()
+  const topicMap = {
     'computer-teacher': [
-              { title: "Programming Fundamentals", description: "Essential concepts for beginners", url: "https://www.w3schools.com/programming/" },
-              { title: "Web Development Guide", description: "Learn HTML, CSS, and JavaScript", url: "https://developer.mozilla.org/en-US/docs/Web" },
-              { title: "Computer Science Basics", description: "Core concepts and principles", url: "https://www.khanacademy.org/computing" }
+      ['javascript', ['javascript', ' js ', 'node']],
+      ['css', ['css', 'style', 'stylesheet']],
+      ['html', ['html', 'tag', 'web page']],
+      ['react', ['react', 'component', 'jsx']],
+      ['python', ['python']],
+      ['java programming', ['java ', 'oops', 'class', 'object']],
+      ['data structures', ['array', 'stack', 'queue', 'linked list', 'tree', 'algorithm']]
     ],
     'mathematics-teacher': [
-              { title: "Math Fundamentals", description: "Basic mathematical concepts", url: "https://www.khanacademy.org/math" },
-              { title: "Algebra Basics", description: "Introduction to algebraic concepts", url: "https://www.mathsisfun.com/algebra/" },
-              { title: "Geometry Concepts", description: "Understanding shapes and space", url: "https://www.mathsisfun.com/geometry/" }
+      ['algebra', ['algebra', 'equation', 'variable']],
+      ['geometry', ['geometry', 'triangle', 'circle', 'angle']],
+      ['calculus', ['calculus', 'derivative', 'integral']],
+      ['statistics', ['statistics', 'probability', 'mean', 'median']]
     ],
     'english-teacher': [
-              { title: "English Grammar", description: "Essential grammar rules", url: "https://www.grammarly.com/blog/" },
-              { title: "Writing Skills", description: "Improve your writing", url: "https://owl.purdue.edu/owl/" },
-              { title: "Literature Guide", description: "Understanding literary works", url: "https://www.sparknotes.com/" }
+      ['english grammar', ['grammar', 'tense', 'verb', 'noun']],
+      ['writing skills', ['writing', 'essay', 'paragraph']],
+      ['english literature', ['literature', 'poem', 'story']]
     ],
     'biology-teacher': [
-              { title: "Biology Fundamentals", description: "Essential life science concepts", url: "https://www.khanacademy.org/science/biology" },
-              { title: "Human Anatomy", description: "Learn about the human body", url: "https://www.innerbody.com/" },
-              { title: "Cell Biology", description: "Understanding cellular processes", url: "https://www.khanacademy.org/science/biology/cellular-molecular-biology" }
+      ['cell biology', ['cell', 'nucleus', 'membrane']],
+      ['genetics', ['genetic', 'dna', 'gene']],
+      ['photosynthesis', ['photosynthesis', 'chlorophyll']],
+      ['human anatomy', ['heart', 'brain', 'body', 'organ']]
     ],
     'physics-teacher': [
-              { title: "Physics Fundamentals", description: "Basic physics concepts", url: "https://www.khanacademy.org/science/physics" },
-              { title: "Mechanics", description: "Motion, forces, and energy", url: "https://www.physicsclassroom.com/" },
-              { title: "Electricity & Magnetism", description: "Electromagnetic concepts", url: "https://www.khanacademy.org/science/physics/magnetic-forces-and-magnetic-fields" }
+      ['force and motion', ['force', 'motion', 'newton', 'speed']],
+      ['energy', ['energy', 'kinetic', 'potential']],
+      ['electricity', ['electricity', 'current', 'voltage']],
+      ['light and optics', ['light', 'reflection', 'refraction']]
     ],
     'chemistry-teacher': [
-              { title: "Chemistry Basics", description: "Fundamental chemical concepts", url: "https://www.khanacademy.org/science/chemistry" },
-              { title: "Periodic Table", description: "Understanding elements", url: "https://www.rsc.org/periodic-table" },
-              { title: "Chemical Reactions", description: "Types of chemical changes", url: "https://www.khanacademy.org/science/chemistry/chemical-reactions-stoichiometry" }
+      ['chemical reactions', ['reaction', 'reactant', 'product']],
+      ['periodic table', ['periodic', 'element', 'atom']],
+      ['acids and bases', ['acid', 'base', 'ph']]
+    ],
+    'history-teacher': [
+      ['world history', ['world war', 'history', 'civilization']],
+      ['indian history', ['india', 'ashoka', 'mughal', 'freedom']]
+    ],
+    'geography-teacher': [
+      ['physical geography', ['mountain', 'river', 'earth', 'landform']],
+      ['climate and weather', ['climate', 'weather', 'rainfall']]
+    ],
+    'hindi-teacher': [
+      ['hindi grammar', ['व्याकरण', 'grammar', 'संज्ञा', 'क्रिया']],
+      ['hindi writing', ['लेखन', 'निबंध', 'पत्र']],
+      ['hindi literature', ['कविता', 'कहानी', 'साहित्य']]
+    ],
+    doctor: [
+      ['nutrition and health', ['food', 'nutrition', 'diet', 'eat']],
+      ['exercise and fitness', ['exercise', 'fitness', 'workout']],
+      ['first aid', ['first aid', 'injury', 'wound']]
+    ],
+    engineer: [
+      ['engineering design', ['design', 'engineering', 'structure']],
+      ['mechanical engineering', ['machine', 'mechanical', 'gear']],
+      ['electrical engineering', ['circuit', 'electrical', 'voltage']]
+    ],
+    lawyer: [
+      ['legal rights', ['rights', 'law', 'legal']],
+      ['constitution', ['constitution', 'fundamental rights']],
+      ['consumer law', ['consumer', 'complaint']]
+    ]
+  }
+
+  const matches = topicMap[avatarType] || []
+  const matched = matches.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))
+  if (matched) return matched[0]
+
+  const fallbackTopic = {
+    'computer-teacher': 'programming basics',
+    'mathematics-teacher': 'mathematics basics',
+    'english-teacher': 'english learning',
+    'biology-teacher': 'biology basics',
+    'physics-teacher': 'physics basics',
+    'chemistry-teacher': 'chemistry basics',
+    'history-teacher': 'history basics',
+    'geography-teacher': 'geography basics',
+    'hindi-teacher': 'hindi learning',
+    doctor: 'health basics',
+    engineer: 'engineering basics',
+    lawyer: 'legal basics'
+  }
+
+  return fallbackTopic[avatarType] || 'learning basics'
+}
+
+const buildSearchUrl = (baseUrl, query) => `${baseUrl}${encodeURIComponent(query)}`
+
+// Helper function to generate fallback articles
+const generateFallbackArticles = (avatarType, prompt = '', answer = '') => {
+  const topic = getSuggestionTopic(avatarType, prompt, answer)
+  const fallbackArticles = {
+    'computer-teacher': [
+              { title: `Learn ${topic}`, description: `Clear article resources about ${topic}.`, url: buildSearchUrl("https://developer.mozilla.org/en-US/search?q=", topic) },
+              { title: `${topic} Tutorial`, description: `Beginner-friendly tutorial for ${topic}.`, url: buildSearchUrl("https://www.w3schools.com/search/search.php?q=", topic) },
+              { title: `${topic} Practice`, description: `Practice and examples for ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) }
+    ],
+    'mathematics-teacher': [
+              { title: `Learn ${topic}`, description: `Step-by-step math resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
+              { title: `${topic} Explained`, description: `Simple explanations and examples for ${topic}.`, url: buildSearchUrl("https://www.mathsisfun.com/search/search.php?query=", topic) },
+              { title: `${topic} Practice`, description: `Practice problems related to ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} math practice`) }
+    ],
+    'english-teacher': [
+              { title: `Learn ${topic}`, description: `Useful article resources about ${topic}.`, url: buildSearchUrl("https://www.grammarly.com/blog/search/", topic) },
+              { title: `${topic} Guide`, description: `Trusted writing and English guidance for ${topic}.`, url: buildSearchUrl("https://owl.purdue.edu/search.html?q=", topic) },
+              { title: `${topic} Examples`, description: `Examples and explanations for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} English examples`) }
+    ],
+    'biology-teacher': [
+              { title: `Learn ${topic}`, description: `Biology article resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
+              { title: `${topic} Overview`, description: `Simple science explanations for ${topic}.`, url: buildSearchUrl("https://www.britannica.com/search?query=", topic) },
+              { title: `${topic} Notes`, description: `Student-friendly notes on ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} biology notes`) }
+    ],
+    'physics-teacher': [
+              { title: `Learn ${topic}`, description: `Physics resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
+              { title: `${topic} Explained`, description: `Student-friendly explanations for ${topic}.`, url: buildSearchUrl("https://www.physicsclassroom.com/search?search=", topic) },
+              { title: `${topic} Practice`, description: `Examples and practice for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} physics practice`) }
+    ],
+    'chemistry-teacher': [
+              { title: `Learn ${topic}`, description: `Chemistry resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
+              { title: `${topic} Guide`, description: `Reliable chemistry guide for ${topic}.`, url: buildSearchUrl("https://www.rsc.org/search?query=", topic) },
+              { title: `${topic} Examples`, description: `Examples and notes for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} chemistry notes`) }
     ],
     'history-teacher': [
               { title: "World History", description: "Major historical events", url: "https://www.khanacademy.org/humanities/world-history" },
@@ -445,35 +540,43 @@ const generateFallbackArticles = (avatarType) => {
     ]
   }
   
-  return fallbackArticles[avatarType] || fallbackArticles['computer-teacher']
+  const genericArticles = [
+    { title: `Learn ${topic}`, description: `Article resources directly related to ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} student article`) },
+    { title: `${topic} Notes`, description: `Student-friendly notes and examples for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} notes for students`) },
+    { title: `${topic} Practice`, description: `Practice questions and explanations for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} practice questions`) }
+  ]
+
+  return fallbackArticles[avatarType] || genericArticles
 }
 
 // Helper function to generate fallback videos
-const generateFallbackVideos = (avatarType) => {
+const generateFallbackVideos = (avatarType, prompt = '', answer = '') => {
+  const topic = getSuggestionTopic(avatarType, prompt, answer)
+  const youtubeSearch = buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} tutorial for students`)
   const fallbackVideos = {
     'computer-teacher': [
-      { title: "Programming for Beginners", description: "Learn to code from scratch", duration: "15:30", url: "https://www.youtube.com/watch?v=zOjov2YO4Es" },
-      { title: "Web Development Tutorial", description: "Build your first website", duration: "22:15", url: "https://www.youtube.com/watch?v=916GWv2Qs08" }
+      { title: `${topic} Video Tutorial`, description: `Watch videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} for Beginners`, description: `Beginner-friendly videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} beginner tutorial`) }
     ],
     'mathematics-teacher': [
-      { title: "Math Fundamentals", description: "Essential mathematical concepts", duration: "12:20", url: "https://www.youtube.com/watch?v=Kp2bYWRQylk" },
-      { title: "Algebra Basics", description: "Understanding algebra", duration: "16:40", url: "https://www.youtube.com/watch?v=NybHckSEQBI" }
+      { title: `${topic} Video Lesson`, description: `Video lessons related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} Practice Videos`, description: `Practice videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} solved examples`) }
     ],
     'english-teacher': [
-      { title: "English Grammar Basics", description: "Essential grammar rules", duration: "13:25", url: "https://www.youtube.com/watch?v=8WJYtGj1g5Q" },
-      { title: "Writing Skills", description: "Improve your writing", duration: "19:10", url: "https://www.youtube.com/watch?v=1ajte3bMroe" }
+      { title: `${topic} Video Lesson`, description: `Video lessons related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} Examples`, description: `Examples and practice videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} English lesson`) }
     ],
     'biology-teacher': [
-      { title: "Biology Introduction", description: "Basic life science concepts", duration: "14:30", url: "https://www.youtube.com/watch?v=izRvPaAWgyw" },
-      { title: "Human Body Systems", description: "Understanding anatomy", duration: "18:45", url: "https://www.youtube.com/watch?v=0jbniqJ4nQc" }
+      { title: `${topic} Video Lesson`, description: `Biology videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} Animation`, description: `Visual explanation videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} biology animation`) }
     ],
     'physics-teacher': [
-      { title: "Physics Fundamentals", description: "Basic physics concepts", duration: "16:20", url: "https://www.youtube.com/watch?v=CQYELiTtUs8" },
-      { title: "Mechanics Explained", description: "Motion and forces", duration: "21:15", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" }
+      { title: `${topic} Video Lesson`, description: `Physics videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} Examples`, description: `Solved examples for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} physics examples`) }
     ],
     'chemistry-teacher': [
-      { title: "Chemistry Basics", description: "Fundamental chemical concepts", duration: "15:40", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "Periodic Table", description: "Understanding elements", duration: "19:30", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
+      { title: `${topic} Video Lesson`, description: `Chemistry videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
+      { title: `${topic} Examples`, description: `Examples and experiments for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} chemistry examples`) }
     ],
     'history-teacher': [
       { title: "World History Overview", description: "Major historical events", duration: "17:25", url: "https://www.youtube.com/watch?v=Yocja_N5s1I" },
@@ -501,7 +604,12 @@ const generateFallbackVideos = (avatarType) => {
     ]
   }
   
-  return fallbackVideos[avatarType] || fallbackVideos['computer-teacher']
+  const genericVideos = [
+    { title: `${topic} Video Lesson`, description: `Video lessons directly related to ${topic}.`, duration: "Search", url: youtubeSearch },
+    { title: `${topic} Explained`, description: `Simple explanation videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} explained for students`) }
+  ]
+
+  return fallbackVideos[avatarType] || genericVideos
 }
 
 // Helper function to get quota status information
@@ -891,7 +999,7 @@ ${history.map((msg) => `${msg.role}: ${msg.content}`).join('\n') || 'No previous
 
 User Question: ${prompt}
 
-Answer quickly in 3-5 short bullet points or short paragraphs. Use simple words. Include one compact code example only when useful. Do not add long introductions or long resource lists.`
+Answer quickly in 2-4 short bullet points or short paragraphs. Use simple words. Include one tiny code example only when necessary. Do not add long introductions or long resource lists.`
 
   const errors = []
 
@@ -1068,8 +1176,8 @@ export default async function handler(req, res) {
       
       // Generate intelligent fallback response
       const fallbackResponse = generateIntelligentFallback(avatarType, prompt)
-      const relatedArticles = generateFallbackArticles(avatarType)
-      const relatedVideos = generateFallbackVideos(avatarType)
+      const relatedArticles = generateFallbackArticles(avatarType, prompt, fallbackResponse)
+      const relatedVideos = generateFallbackVideos(avatarType, prompt, fallbackResponse)
       
       return res.status(200).json({
         part1: `I apologize, but I'm currently unable to access my AI capabilities. ${fallbackResponse}`,
@@ -1204,10 +1312,10 @@ export default async function handler(req, res) {
 
     // If no related content was extracted, generate fallback suggestions
     if (relatedArticles.length === 0) {
-      relatedArticles = generateFallbackArticles(avatarType)
+      relatedArticles = generateFallbackArticles(avatarType, prompt, part1)
     }
     if (relatedVideos.length === 0) {
-      relatedVideos = generateFallbackVideos(avatarType)
+      relatedVideos = generateFallbackVideos(avatarType, prompt, part1)
     }
 
     console.log('API Response generated successfully:', {
@@ -1287,8 +1395,8 @@ In the meantime, you can explore the suggested resources below to continue learn
     }
     
     // Generate fallback content for the specific avatar type
-    const relatedArticles = generateFallbackArticles(avatarType)
-    const relatedVideos = generateFallbackVideos(avatarType)
+    const relatedArticles = generateFallbackArticles(avatarType, prompt, fallbackResponse)
+    const relatedVideos = generateFallbackVideos(avatarType, prompt, fallbackResponse)
     
     return res.status(200).json({
       part1: fallbackResponse,
