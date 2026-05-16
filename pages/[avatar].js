@@ -19,6 +19,7 @@ import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback'
 import TextInputBox from '../components/ChatInterface/TextInputBox'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
+import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 
 export default function AvatarChat() {
   const router = useRouter()
@@ -432,6 +433,7 @@ export default function AvatarChat() {
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-hidden">
           {/* WhatsApp Button */}
           <WhatsAppButton />
+          <VisitorCounter />
           {/* Back Button - Compact */}
           <div className="absolute top-2 left-2 z-10">
               <button
