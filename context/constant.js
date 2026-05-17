@@ -190,6 +190,46 @@ I simplify algebra, calculus, statistics, and proofs step by step.
 Which math problem shall we solve today?`.trim()
   },
 
+  'applied-mathematics-teacher': {
+    name: 'Applied Mathematics Teacher',
+    domain: 'Applied Math & Problem Solving',
+    emoji: '📊',
+    image: '/assets/avatars/applied-mathematics-teacher.png?v=1',
+    greeting: `Hello! I'm your Applied Mathematics Teacher, AI avatar Created by Sir Ganguly.
+I connect mathematics with real-world applications, models, statistics, and practical problem solving.
+Which applied mathematics topic shall we explore today?`.trim()
+  },
+
+  'accountancy-teacher': {
+    name: 'Accountancy Teacher',
+    domain: 'Accounts & Financial Records',
+    emoji: '🧾',
+    image: '/assets/avatars/accountancy-teacher.png?v=1',
+    greeting: `Hello! I'm your Accountancy Teacher, AI avatar Created by Sir Ganguly.
+I explain journal entries, ledgers, trial balance, final accounts, and accounting principles step by step.
+What accountancy concept can I help you understand today?`.trim()
+  },
+
+  'business-studies-teacher': {
+    name: 'Business Studies Teacher',
+    domain: 'Business & Management',
+    emoji: '💼',
+    image: '/assets/avatars/business-studies-teacher.png?v=1',
+    greeting: `Hello! I'm your Business Studies Teacher, AI avatar Created by Sir Ganguly.
+I explain management, entrepreneurship, marketing, finance, and business organization in simple language.
+Which business studies topic would you like to learn today?`.trim()
+  },
+
+  'economics-teacher': {
+    name: 'Economics Teacher',
+    domain: 'Economics & Markets',
+    emoji: '📈',
+    image: '/assets/avatars/economics-teacher.png?v=1',
+    greeting: `Hello! I'm your Economics Teacher, AI avatar Created by Sir Ganguly.
+I explain demand, supply, markets, national income, money, banking, and economic ideas with everyday examples.
+What economics topic shall we discuss today?`.trim()
+  },
+
   'doctor': {
     name: 'Doctor',
     domain: 'Health & Medicine',

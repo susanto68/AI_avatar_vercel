@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import Link from 'next/link'
 import AvatarGrid from '../components/AvatarSelection/AvatarGrid'
 import LoadingScreen from '../components/AvatarSelection/LoadingScreen'
 import VoiceFallback from '../components/VoiceControls/VoiceFallback'
@@ -394,39 +393,25 @@ export default function Home() {
               onAvatarSelect={handleAvatarSelect}
             />
 
-            {/* Footer */}
-            <div className="text-center mt-8">
-              <p className="text-white/60 text-sm mb-4">
-                {UI_TEXT.TITLES.FOOTER}
+            {/* Poem */}
+            <section className="mx-auto mt-12 max-w-4xl border-t border-white/20 pt-10 text-center text-white">
+              <h2 className="mb-6 text-2xl font-semibold tracking-wide text-white md:text-4xl">
+                Where the Mind is Without Fear
+              </h2>
+              <div className="mx-auto max-w-3xl whitespace-pre-line text-base leading-8 text-white/90 md:text-xl md:leading-10">
+{`Where the mind is without fear and the head is held high;
+Where knowledge is free;
+Where the world has not been broken up into fragments by narrow domestic walls;
+Where words come out from the depth of truth;
+Where tireless striving stretches its arms towards perfection;
+Where the clear stream of reason has not lost its way into the dreary desert sand of dead habit;
+Where the mind is led forward by thee into ever-widening thought and action -
+Into that heaven of freedom, my Father, let my country awake.`}
+              </div>
+              <p className="mt-6 text-lg font-semibold text-white/80 md:text-2xl">
+                Rabindranath Tagore
               </p>
-              <Link 
-                href="/admin/visitors" 
-                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                📊 View Visitor Analytics
-              </Link>
-              
-              <Link 
-                href="/test-speech" 
-                className="inline-flex items-center gap-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 hover:text-green-200 px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                🧪 Test Speech
-              </Link>
-              
-              <Link 
-                href="/debug-speech" 
-                className="inline-flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                🐛 Debug Speech
-              </Link>
-              
-              <Link 
-                href="/test-voice-simple" 
-                className="inline-flex items-center gap-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 hover:text-orange-200 px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                🎤 Simple Voice Test
-              </Link>
-            </div>
+            </section>
           </div>
         </div>
       </VoiceFallback>

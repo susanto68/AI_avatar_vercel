@@ -12,6 +12,10 @@ export default function AvatarTile({ avatarType, config, onSelect, index }) {
     'geography-teacher': 'bg-gradient-to-br from-blue-500 via-cyan-600 to-teal-700',
     'hindi-teacher': 'bg-gradient-to-br from-orange-500 via-red-600 to-pink-700',
     'mathematics-teacher': 'bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-700',
+    'applied-mathematics-teacher': 'bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700',
+    'accountancy-teacher': 'bg-gradient-to-br from-lime-500 via-emerald-600 to-green-700',
+    'business-studies-teacher': 'bg-gradient-to-br from-sky-500 via-blue-600 to-slate-700',
+    'economics-teacher': 'bg-gradient-to-br from-teal-500 via-cyan-600 to-blue-700',
     'doctor': 'bg-gradient-to-br from-red-500 via-pink-600 to-rose-700',
     'engineer': 'bg-gradient-to-br from-gray-600 via-slate-700 to-zinc-800',
     'lawyer': 'bg-gradient-to-br from-slate-600 via-gray-700 to-zinc-800'
@@ -41,9 +45,14 @@ export default function AvatarTile({ avatarType, config, onSelect, index }) {
     >
       <div className="avatar-image-container mb-3 relative">
         <img
+          key={config.image}
           src={config.image}
           alt={config.name}
           className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover mx-auto border-2 border-white/30 shadow-lg transition-all duration-300"
+          onLoad={(e) => {
+            e.target.style.display = 'block'
+            e.target.nextElementSibling.style.display = 'none'
+          }}
           onError={(e) => {
             e.target.style.display = 'none'
             e.target.nextElementSibling.style.display = 'block'
