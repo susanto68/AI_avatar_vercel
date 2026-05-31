@@ -346,23 +346,24 @@ export default function AvatarChat() {
             </div>
           )}
 
-          {/* Back button */}
-          <div className="absolute top-2 left-2 z-10">
-            <button onClick={handleBack}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all backdrop-blur-md border border-white/20 hover:scale-105 text-sm font-bold">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-              BACK
-            </button>
-          </div>
-
           <div className="container mx-auto px-3 pb-20 flex flex-col min-h-screen">
-
-            {/* Header */}
-            <div className="text-center text-white pt-12 mb-2">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-0.5">{avatarConfig.name}</h1>
-              <p className="text-xs sm:text-sm opacity-80">{avatarConfig.domain}</p>
+            
+            {/* Unified Navigation Header Bar */}
+            <div className="flex items-center justify-between py-4 border-b border-white/10 mb-4">
+              <button 
+                onClick={handleBack}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/95 text-gray-900 hover:bg-white text-xs sm:text-sm font-extrabold rounded-xl transition-all shadow-md active:scale-95 hover:scale-105 border border-purple-200"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-purple-600">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                HOME
+              </button>
+              
+              <div className="text-right text-white">
+                <h1 className="text-sm sm:text-base md:text-lg font-black tracking-tight leading-none mb-1">{avatarConfig.name}</h1>
+                <p className="text-[10px] sm:text-xs font-semibold opacity-75">{avatarConfig.domain}</p>
+              </div>
             </div>
 
             {/* Avatar */}
