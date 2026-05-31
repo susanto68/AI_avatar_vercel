@@ -179,7 +179,7 @@ export default function Home() {
 
           <div className="container mx-auto px-4 py-8">
             {/* Header */}
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
                 {UI_TEXT.TITLES.MAIN_PAGE}
               </h1>
@@ -189,6 +189,37 @@ export default function Home() {
               <p className="text-sm text-white/60">
                 {UI_TEXT.TITLES.CREATOR}
               </p>
+            </div>
+
+            {/* Explore Sir Ganguly AI Ecosystem Links Grid */}
+            <div className="ecosystem-grid-container mx-auto mb-6 max-w-4xl">
+              <h2 className="ecosystem-grid-title">Explore Sir Ganguly AI Ecosystem</h2>
+              <div className="ecosystem-grid">
+                <a href="https://sirganguly.com" className="sg-hero-btn sg-btn-home" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">🏠</span>
+                  <span className="sg-btn-text">Home Portal</span>
+                </a>
+                <a href="https://ai.sirganguly.com" className="sg-hero-btn sg-btn-ai" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">🤖</span>
+                  <span className="sg-btn-text">AI Teacher</span>
+                </a>
+                <a href="https://questions.sirganguly.com" className="sg-hero-btn sg-btn-questions" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">❓</span>
+                  <span className="sg-btn-text">100 Question Bank</span>
+                </a>
+                <a href="https://books.sirganguly.com" className="sg-hero-btn sg-btn-books" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">📚</span>
+                  <span className="sg-btn-text">Books Library</span>
+                </a>
+                <a href="https://career.sirganguly.com" className="sg-hero-btn sg-btn-career" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">🚀</span>
+                  <span className="sg-btn-text">Career Placement</span>
+                </a>
+                <a href="https://mentor.sirganguly.com" className="sg-hero-btn sg-btn-mentor" target="_blank" rel="noopener noreferrer">
+                  <span className="sg-btn-icon">🎯</span>
+                  <span className="sg-btn-text">Meet Mentors</span>
+                </a>
+              </div>
             </div>
 
             {/* Speaking indicator */}
