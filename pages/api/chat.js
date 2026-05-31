@@ -512,13 +512,13 @@ export default async function handler(req, res) {
     // Extract related articles
     if (articlesMatch) {
       const articlesText = articlesMatch[1].trim()
-      relatedArticles = parseRelatedContent(articlesText, 'article')
+      relatedArticles = parseRelatedContent(articlesText, 'article', avatarType)
     }
 
     // Extract related videos
     if (videosMatch) {
       const videosText = videosMatch[1].trim()
-      relatedVideos = parseRelatedContent(videosText, 'video')
+      relatedVideos = parseRelatedContent(videosText, 'video', avatarType)
     }
 
     // If no explicit parts found, try to extract code blocks for part2
