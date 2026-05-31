@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import AvatarGrid from '../components/AvatarSelection/AvatarGrid'
@@ -6,7 +6,7 @@ import LoadingScreen from '../components/AvatarSelection/LoadingScreen'
 import VoiceFallback from '../components/VoiceControls/VoiceFallback'
 import { AVATAR_CONFIG } from '../lib/avatars'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
-import { speakText, initSynth } from '../lib/speech'
+import { speakText, initSynth, unlockAudio } from '../lib/speech'
 import { WELCOME_MESSAGES, UI_TEXT } from '../context/constant.js'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
@@ -15,36 +15,27 @@ export default function Home() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [hasPlayedWelcome, setHasPlayedWelcome] = useState(false)
+  const [userInteracted, setUserInteracted] = useState(false)
+  
   const welcomeTimeoutRef = useRef(null)
+  const hasTriggeredWelcomeRef = useRef(false)
 
   const { speakText: hookSpeakText, isSpeaking } = useSpeechSynthesis()
 
-  // Auto-greeting audio on load - only once per session
+  // Auto-greeting audio on load - only once per mount
   const playWelcomeGreeting = useCallback(() => {
-    // Multiple safety checks to prevent infinite loops
-    if (hasPlayedWelcome) {
-      console.log('🛑 Welcome already played, skipping')
+    // Prevent duplicate plays on double-mount or strict mode
+    if (hasTriggeredWelcomeRef.current) {
+      console.log('🛑 Welcome already triggered, skipping')
       return
     }
-
-    // Check sessionStorage as primary safety (persists only for this session)
-    if (typeof window !== 'undefined' && sessionStorage.getItem('welcomePlayed') === 'true') {
-      console.log('🛑 Welcome already played (sessionStorage), skipping')
-      setHasPlayedWelcome(true)
-      return
-    }
+    hasTriggeredWelcomeRef.current = true
 
     const welcomeMessage = WELCOME_MESSAGES.MAIN_PAGE
     console.log('🎤 Starting welcome message...')
 
     try {
-      // Mark as playing immediately to prevent multiple calls
       setHasPlayedWelcome(true)
-      
-      // Store in sessionStorage to prevent playing again in this session
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('welcomePlayed', 'true')
-      }
       
       // Use the imported speakText function with proper callback
       speakText(welcomeMessage, () => {
@@ -54,203 +45,14 @@ export default function Home() {
       console.log('🎤 Welcome message started')
     } catch (error) {
       console.warn('⚠️ Welcome message failed:', error)
-      // Mark as played even on error to prevent retries
       setHasPlayedWelcome(true)
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('welcomePlayed', 'true')
-      }
     }
-  }, [hasPlayedWelcome])
+  }, [])
 
   // Handle avatar selection
   const handleAvatarSelect = (avatarType) => {
     router.push(`/${avatarType}`)
   }
-
-  // Visitor counter functionality - Count every page visit
-  useEffect(() => {
-    // Always count visitors on every page visit
-    console.log('🌍 New page visit detected - counting visitor');
-    
-    // Clear any corrupted counter data
-    const globalCount = parseInt(localStorage.getItem('globalCount')) || 0;
-    const indiaCount = parseInt(localStorage.getItem('indiaCount')) || 0;
-    
-    if (globalCount < 0 || globalCount > 1000000) {
-      console.log('🔄 Clearing corrupted global counter');
-      localStorage.removeItem('globalCount');
-    }
-    
-    if (indiaCount < 0 || indiaCount > 1000000) {
-      console.log('🔄 Clearing corrupted Indian counter');
-      localStorage.removeItem('indiaCount');
-    }
-
-    // Wait for DOM to be ready
-    const timer = setTimeout(() => {
-      // Smooth count animation
-      const animateCount = (el, newValue) => {
-        if (!el) return;
-        
-        let start = parseInt(el.dataset.count) || 0;
-        let end = newValue;
-        
-        // Prevent negative counting - always count up
-        if (end < start) {
-          end = start; // Don't allow decreasing counts
-        }
-        
-        let duration = 800;
-        let stepTime = Math.abs(Math.floor(duration / (end - start))) || 20;
-        let current = start;
-        let increment = 1; // Always increment, never decrement
-
-        // If start and end are the same, just update the display
-        if (start === end) {
-          el.innerText = end;
-          el.dataset.count = end;
-          return;
-        }
-
-        let timer = setInterval(() => {
-          current += increment;
-          el.innerText = current;
-          if (current >= end) {
-            clearInterval(timer);
-            el.innerText = end;
-            el.dataset.count = end;
-          }
-        }, stepTime);
-      };
-
-      // Get current counts from localStorage or use defaults
-      const getCurrentCounts = () => {
-        let globalCount = parseInt(localStorage.getItem('globalCount')) || 503;
-        let indiaCount = parseInt(localStorage.getItem('indiaCount')) || 2129;
-        
-        // Check if counts are corrupted (negative or extremely high)
-        if (globalCount < 0 || globalCount > 1000000) {
-          console.warn('⚠️ Corrupted global count detected, resetting to default');
-          globalCount = 503;
-          localStorage.setItem('globalCount', '503');
-        }
-        
-        if (indiaCount < 0 || indiaCount > 1000000) {
-          console.warn('⚠️ Corrupted Indian count detected, resetting to default');
-          indiaCount = 2129;
-          localStorage.setItem('indiaCount', '2129');
-        }
-        
-        // Ensure counts are never negative
-        globalCount = Math.max(0, globalCount);
-        indiaCount = Math.max(0, indiaCount);
-        
-        return { globalCount, indiaCount };
-      };
-
-      // Update counter in localStorage and animate
-      const updateCounter = (type, newValue) => {
-        // Ensure the new value is never negative
-        const safeValue = Math.max(0, newValue);
-        localStorage.setItem(`${type}Count`, safeValue.toString());
-        const element = document.getElementById(`${type}-count`);
-        if (element) {
-          animateCount(element, safeValue);
-        }
-      };
-
-          // Detect visitor country and update counters using our API
-          fetch("https://ipapi.co/json/")
-            .then(res => res.json())
-            .then(data => {
-              console.log('🌍 Visitor location detected:', data.country_code, data.country_name);
-              console.log('📍 Location details:', {
-                country: data.country_name,
-                code: data.country_code,
-                city: data.city,
-                region: data.region
-              });
-              
-              let isIndia = (data.country_code === "IN");
-              
-              // Send visitor data to our API for proper tracking
-              fetch('/api/visitor-counter', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  countryCode: data.country_code,
-                  ipAddress: data.ip,
-                  userAgent: navigator.userAgent
-                })
-              })
-              .then(res => res.json())
-              .then(apiResponse => {
-                if (apiResponse.success) {
-                  console.log('✅ Visitor counted via countapi.xyz:', apiResponse.message);
-                  
-                  // Update display with new counts from API
-                  updateCounter('global', apiResponse.globalCount);
-                  updateCounter('india', apiResponse.indiaCount);
-                  
-                  // Update status message
-                  const statusElement = document.querySelector('.visitor.status');
-                  if (statusElement) {
-                    statusElement.innerHTML = `📍 ${isIndia ? '🇮🇳 Indian' : '🌍 International'} visitor counted`;
-                  }
-                } else {
-                  console.warn('⚠️ countapi.xyz failed, using fallback');
-                  // Fallback to local counting
-                  let { globalCount, indiaCount } = getCurrentCounts();
-                  if (isIndia) {
-                    indiaCount++;
-                    updateCounter('india', indiaCount);
-                    updateCounter('global', globalCount);
-                  } else {
-                    globalCount++;
-                    updateCounter('global', globalCount);
-                    updateCounter('india', indiaCount);
-                  }
-                }
-              })
-              .catch(error => {
-                console.warn('⚠️ API call failed, using local fallback:', error);
-                // Fallback to local counting
-                let { globalCount, indiaCount } = getCurrentCounts();
-                if (isIndia) {
-                  indiaCount++;
-                  updateCounter('india', indiaCount);
-                  updateCounter('global', globalCount);
-                } else {
-                  globalCount++;
-                  updateCounter('global', globalCount);
-                  updateCounter('india', indiaCount);
-                }
-              });
-
-              console.log('✅ Visitor counted on page visit');
-            })
-            .catch(error => {
-              console.warn('⚠️ Location detection failed, using default counters:', error);
-              // Fallback to default behavior
-              let { globalCount, indiaCount } = getCurrentCounts();
-              globalCount++; // Assume global visitor
-              updateCounter('global', globalCount);
-              updateCounter('india', indiaCount);
-              
-              console.log('✅ Visitor counted (fallback) on page visit');
-              
-              // Update status message
-              const statusElement = document.querySelector('.visitor.status');
-              if (statusElement) {
-                statusElement.innerHTML = '📍 Visitor counted (location unknown)';
-              }
-            });
-    }, 1000); // Wait 1 second for DOM to be ready
-
-    return () => clearTimeout(timer);
-  }, []);
 
   // Initialize speech synthesis
   useEffect(() => {
@@ -275,36 +77,50 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Handle first user interaction to play welcome greeting synchronously
+  const handleFirstInteraction = useCallback(() => {
+    if (userInteracted) return
+    console.log('👆 First user interaction on Home page!')
+    setUserInteracted(true)
+    unlockAudio()
+
+    // If it hasn't completed playing and is not currently speaking, trigger it
+    if (!hasPlayedWelcome && !isSpeaking) {
+      console.log('🎤 Autoplay was blocked/inactive. Triggering welcome greeting synchronously...')
+      hasTriggeredWelcomeRef.current = false
+      playWelcomeGreeting()
+    }
+  }, [userInteracted, hasPlayedWelcome, isSpeaking, playWelcomeGreeting])
+
+  useEffect(() => {
+    const handle = () => {
+      handleFirstInteraction()
+    }
+    window.addEventListener('click',      handle, { once: true })
+    window.addEventListener('touchstart', handle, { once: true })
+    return () => {
+      window.removeEventListener('click',      handle)
+      window.removeEventListener('touchstart', handle)
+    }
+  }, [handleFirstInteraction])
+
   // Initialize app
   useEffect(() => {
     const initApp = () => {
       console.log('🚀 Initializing app...')
-      
-      // Check if welcome message has been played in this session
-      if (typeof window !== 'undefined') {
-        const welcomePlayed = sessionStorage.getItem('welcomePlayed')
-        if (welcomePlayed === 'true') {
-          console.log('✅ Welcome already played in this session')
-          setHasPlayedWelcome(true)
-        } else {
-          console.log('🆕 New session - welcome message will play')
-          setHasPlayedWelcome(false)
-        }
-      }
+      setHasPlayedWelcome(false)
 
       // Simulate loading time for smooth experience
       setTimeout(() => {
         setIsLoading(false)
         console.log('📱 Loading complete, checking welcome message...')
 
-        // Play welcome greeting after loading only if not played yet
-        if (!hasPlayedWelcome) {
-          console.log('🎤 Scheduling welcome message...')
+        // Try to play welcome greeting automatically on load
+        if (!hasTriggeredWelcomeRef.current) {
+          console.log('🎤 Trying auto-play welcome greeting on load...')
           welcomeTimeoutRef.current = setTimeout(() => {
             playWelcomeGreeting()
           }, 500)
-        } else {
-          console.log('🛑 Welcome already played, skipping')
         }
       }, 1000)
     }
@@ -318,7 +134,7 @@ export default function Home() {
         console.log('🧹 Cleaned up welcome timeout')
       }
     }
-  }, [playWelcomeGreeting]) // Removed hasPlayedWelcome from dependencies to prevent loops
+  }, [playWelcomeGreeting])
 
   if (isLoading) {
     return <LoadingScreen />
@@ -348,10 +164,18 @@ export default function Home() {
       </Head>
       
       <VoiceFallback onVoiceSupportChange={(supported) => console.log('Voice support:', supported)}>
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative">
           {/* WhatsApp Button */}
           <WhatsAppButton />
           <VisitorCounter />
+
+          {/* Audio nudge — before first interaction */}
+          {!userInteracted && !hasPlayedWelcome && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-400 text-gray-900 text-sm font-bold px-5 py-2.5 rounded-full shadow-2xl animate-bounce cursor-pointer"
+              onClick={handleFirstInteraction}>
+              👆 Tap here to enable voice &amp; audio
+            </div>
+          )}
 
           <div className="container mx-auto px-4 py-8">
             {/* Header */}

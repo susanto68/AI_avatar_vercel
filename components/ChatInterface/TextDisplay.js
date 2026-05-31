@@ -8,12 +8,17 @@ const ReactMarkdown = dynamic(() => import('react-markdown'), {
   loading: () => <div className="animate-pulse bg-gray-200 h-4 rounded"></div>
 })
 
-export default function TextDisplay({ text, isProcessing, avatarConfig, isListening, interimTranscript, noSpeechDetected }) {
+export default function TextDisplay({ text, isProcessing, avatarConfig, isListening, interimTranscript, noSpeechDetected, lastQuestion }) {
   const [isClient, setIsClient] = useState(false)
   const [markdownError, setMarkdownError] = useState(false)
   
   const displayText = isListening && interimTranscript ? interimTranscript : text
   const isInterim = isListening && interimTranscript
+
+  let contentToRender = displayText
+  if (lastQuestion && lastQuestion.trim() && !isInterim) {
+    contentToRender = `**Question:**\n${lastQuestion.trim()}\n\n**Answer:**\n${displayText}`
+  }
 
   // Ensure client-side rendering to prevent hydration errors
   useEffect(() => {
@@ -139,7 +144,7 @@ export default function TextDisplay({ text, isProcessing, avatarConfig, isListen
                 <span className="inline-block w-1 h-4 bg-green-500 ml-1 animate-pulse"></span>
               </p>
             ) : (
-              renderMarkdown(displayText)
+              renderMarkdown(contentToRender)
             )}
           </div>
         </div>

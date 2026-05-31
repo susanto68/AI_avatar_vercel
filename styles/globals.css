@@ -1,8 +1,9 @@
+/* Google Fonts must be first before any @tailwind directives */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 @layer base {
   html {
@@ -98,7 +99,52 @@
   .speaking {
     @apply animate-speaking;
   }
-  
+
+  /* ======= Avatar Animation Keyframes ======= */
+  @keyframes avatarBreathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50%       { transform: scale(1.015) translateY(-2px); }
+  }
+  @keyframes avatarNod {
+    0%, 100% { transform: rotateX(0deg); }
+    30%      { transform: rotateX(8deg); }
+    60%      { transform: rotateX(-4deg); }
+  }
+  @keyframes mouthMove {
+    0%, 100% { transform: scaleY(1); }
+    25%      { transform: scaleY(0.85); }
+    50%      { transform: scaleY(1.1); }
+    75%      { transform: scaleY(0.9); }
+  }
+  @keyframes eyeBlink {
+    0%, 90%, 100% { transform: scaleY(1); }
+    95%            { transform: scaleY(0.05); }
+  }
+  @keyframes idleFloat {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-4px); }
+  }
+  @keyframes speakingGlow {
+    0%, 100% { box-shadow: 0 0 12px 2px rgba(96, 165, 250, 0.4); }
+    50%      { box-shadow: 0 0 24px 6px rgba(96, 165, 250, 0.7); }
+  }
+
+  .avatar-breathing {
+    animation: avatarBreathe 3s ease-in-out infinite;
+  }
+  .avatar-speaking {
+    animation: avatarBreathe 0.6s ease-in-out infinite, speakingGlow 0.8s ease-in-out infinite;
+  }
+  .avatar-idle {
+    animation: idleFloat 4s ease-in-out infinite;
+  }
+  .avatar-eye-blink {
+    animation: eyeBlink 4s ease-in-out infinite;
+  }
+  .avatar-mouth-move {
+    animation: mouthMove 0.3s ease-in-out infinite;
+  }
+
   /* Visitor Counter Styles */
   #visitor-counters {
     position: fixed;
@@ -399,6 +445,40 @@
     @apply shadow-2xl;
     @apply transform transition-all duration-300 ease-out;
   }
+
+  /* Voice fallback message */
+  .voice-fallback-message {
+    @apply fixed bottom-4 left-1/2 -translate-x-1/2 z-50;
+    @apply bg-gray-900/90 text-white rounded-xl px-4 py-3;
+    @apply shadow-xl backdrop-blur-md border border-white/10;
+    @apply max-w-xs w-full;
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .voice-fallback-content {
+    @apply flex items-center gap-3;
+  }
+
+  .voice-fallback-icon {
+    @apply text-2xl flex-shrink-0;
+  }
+
+  .voice-fallback-text {
+    @apply flex flex-col text-xs;
+  }
+
+  .voice-fallback-text strong {
+    @apply font-semibold text-white;
+  }
+
+  .voice-fallback-text span {
+    @apply text-white/70 mt-0.5;
+  }
+
+  .voice-fallback-close {
+    @apply ml-auto text-white/60 hover:text-white text-lg font-bold leading-none flex-shrink-0;
+    @apply transition-colors duration-150;
+  }
 }
 
 @layer utilities {
@@ -538,6 +618,11 @@
       transform: scale(1);
     }
   }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
   
   /* PWA install prompt specific styles */
   .pwa-install-prompt {
@@ -633,8 +718,6 @@
   }
 }
 
-/* Custom animations keyframes are defined in tailwind.config.js */
-
 /* Voice window specific styles */
 .voice-window {
   @apply bg-white/10 backdrop-blur-md border border-white/20;
@@ -675,6 +758,3 @@
 .dark .qa-summary {
   @apply bg-gray-800/20 border-gray-700/30;
 }
-
-
-

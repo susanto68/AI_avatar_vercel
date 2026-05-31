@@ -1,106 +1,130 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+
+const REFRESH_INTERVAL_MS = 30000
+
+const formatCount = (value) => {
+  const count = Number.parseInt(value, 10)
+  return Number.isFinite(count) && count >= 0 ? count.toLocaleString() : '0'
+}
+
+const StatCard = ({ label, value, accent }) => (
+  <div className="rounded-lg border border-white/15 bg-white/10 p-5 backdrop-blur">
+    <p className="text-sm font-medium uppercase tracking-wide text-white/65">{label}</p>
+    <p className={`mt-3 text-4xl font-bold ${accent}`}>{formatCount(value)}</p>
+  </div>
+)
 
 export default function VisitorAnalytics() {
   const [visitorData, setVisitorData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   useEffect(() => {
-    // This would typically fetch from your database
-    // For now, we'll show a placeholder
-    setLoading(false)
+    let isMounted = true
+
+    const loadVisitorData = async () => {
+      try {
+        const response = await fetch('/api/visitor-counter')
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Unable to load visitor totals')
+        }
+
+        if (isMounted) {
+          setVisitorData(data)
+          setLastUpdated(new Date())
+          setError(null)
+        }
+      } catch (error) {
+        if (isMounted) {
+          setError(error.message)
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadVisitorData()
+    const intervalId = setInterval(loadVisitorData, REFRESH_INTERVAL_MS)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
   }, [])
 
+  const totalCount = visitorData?.totalCount ?? 0
+  const indiaCount = visitorData?.indiaCount ?? 0
+  const internationalCount = Math.max((visitorData?.globalCount ?? 0), 0)
+  const activeCount = visitorData?.activeCount ?? 0
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-slate-950 to-indigo-950">
       <Head>
         <title>Visitor Analytics - Avatar AI Assistant</title>
         <meta name="description" content="Admin dashboard for visitor analytics" />
       </Head>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            🌍 Visitor Analytics
+      <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-8 md:py-12">
+        <div className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-wide text-blue-200/80">
+            Admin
+          </p>
+          <h1 className="mt-2 text-3xl font-bold text-white md:text-5xl">
+            Visitor Analytics
           </h1>
-          <p className="text-xl text-white/80">
-            Track your website visitors and engagement
+          <p className="mt-3 max-w-2xl text-base text-white/70 md:text-lg">
+            Live totals from the current visitor counter backend.
           </p>
         </div>
 
         {loading ? (
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-2 rounded-full text-sm">
-              <div className="w-3 h-3 bg-blue-400 rounded-full animate-ping"></div>
-              Loading analytics...
-            </div>
+          <div className="rounded-lg border border-white/15 bg-white/10 p-6 text-white/80">
+            Loading visitor totals...
           </div>
         ) : error ? (
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 bg-red-500/20 text-red-300 px-4 py-2 rounded-full text-sm">
-              ❌ {error}
-            </div>
+          <div className="rounded-lg border border-red-400/30 bg-red-500/15 p-6 text-red-100">
+            {error}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Current Counts */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20">
-              <h2 className="text-2xl font-bold text-white mb-4">📊 Current Counts</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">🌍 Global Visitors:</span>
-                  <span className="text-3xl font-bold text-blue-400">503+</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">🇮🇳 Indian Visitors:</span>
-                  <span className="text-3xl font-bold text-green-400">127+</span>
-                </div>
-              </div>
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard label="Total visitors" value={totalCount} accent="text-blue-200" />
+              <StatCard label="Active now" value={activeCount} accent="text-emerald-200" />
+              <StatCard label="India" value={indiaCount} accent="text-green-200" />
+              <StatCard label="International" value={internationalCount} accent="text-cyan-200" />
             </div>
 
-            {/* Setup Instructions */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20">
-              <h2 className="text-2xl font-bold text-white mb-4">⚙️ Setup Required</h2>
-              <div className="space-y-3 text-white/80 text-sm">
-                <p>To get real-time visitor tracking in Vercel:</p>
-                <ol className="list-decimal list-inside space-y-2 ml-4">
-                  <li>Set up a database (MongoDB, PostgreSQL, or Vercel KV)</li>
-                  <li>Update the visitor-counter API to use the database</li>
-                  <li>Add authentication to this admin page</li>
-                  <li>Create a proper analytics dashboard</li>
-                </ol>
-              </div>
-            </div>
-
-            {/* Vercel Logs Info */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 border border-white/20 md:col-span-2">
-              <h2 className="text-2xl font-bold text-white mb-4">📋 Vercel Logs</h2>
-              <div className="text-white/80 text-sm space-y-2">
-                <p>Currently, visitor data is logged to Vercel console logs. To view:</p>
-                <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>Go to your Vercel dashboard</li>
-                  <li>Select your project</li>
-                  <li>Click on &quot;Functions&quot; tab</li>
-                  <li>View logs for the visitor-counter API</li>
-                  <li>Each visitor will show: country, IP, timestamp, and counts</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+            <section className="mt-6 rounded-lg border border-white/15 bg-white/10 p-5 text-white/75 backdrop-blur">
+              <h2 className="text-lg font-semibold text-white">Counter Source</h2>
+              <p className="mt-2 text-sm leading-6">
+                These numbers come from <span className="font-mono text-white">/api/visitor-counter</span>.
+                The dashboard reads totals without sending a heartbeat, so it does not increase visitor counts or active sessions.
+              </p>
+              {lastUpdated && (
+                <p className="mt-4 text-sm text-white/55">
+                  Last updated {lastUpdated.toLocaleTimeString()}
+                </p>
+              )}
+            </section>
+          </>
         )}
 
-        {/* Back to Home */}
-        <div className="text-center mt-8">
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg transition-colors"
+        <div className="mt-8">
+          <Link
+            href="/"
+            className="inline-flex items-center rounded-lg bg-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/25"
           >
-            ← Back to Home
+            Back to Home
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

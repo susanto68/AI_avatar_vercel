@@ -3,20 +3,32 @@ import { getCompleteSystemPrompt } from '../../context/prompts.js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
 
+import { generateIntelligentFallback } from '../../context/offlineKnowledge.js'
+import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
+
 // Initialize AI clients
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || 'missing-groq-api-key',
+  baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+})
 
-const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite,gemini-2.5-flash,gemini-flash-latest')
+// Valid Gemini model names (updated May 2026)
+const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-1.5-flash,gemini-1.5-pro,gemini-pro')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
-const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 300)
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 7000)
+const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant,llama-3.3-70b-versatile')
+  .split(',')
+  .map((model) => model.trim())
+  .filter(Boolean)
+const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 500)
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 10000)
 const AI_HISTORY_LIMIT = Number(process.env.AI_HISTORY_LIMIT || 2)
 
 // In-memory conversation storage with enhanced session management
@@ -25,869 +37,6 @@ const sessionContexts = new Map()
 
 // Performance optimization: Cache system prompts
 const systemPromptCache = new Map()
-
-// Comprehensive offline knowledge base for all avatars
-const OFFLINE_KNOWLEDGE_BASE = {
-  'biology-teacher': {
-    'brain': {
-      title: "The Human Brain",
-      content: `The brain is the command center of the human body, controlling all our thoughts, movements, and bodily functions. It's made up of billions of nerve cells called neurons that communicate through electrical and chemical signals.
-
-**Key Facts:**
-• Weight: About 3 pounds (1.4 kg)
-• Neurons: Approximately 86 billion
-• Energy Usage: 20% of body's total energy
-• Functions: Memory, learning, emotions, behavior control
-
-**Main Parts:**
-1. **Cerebrum** - Thinking, voluntary actions, memory
-2. **Cerebellum** - Balance, coordination, fine motor skills
-3. **Brainstem** - Basic life functions (breathing, heart rate)
-
-**Interesting Facts:**
-• The brain can process information at 268 mph
-• It generates enough electricity to power a light bulb
-• New neural connections form when you learn something new`,
-      keywords: ['brain', 'nervous system', 'neurons', 'cerebrum', 'cerebellum', 'brainstem']
-    },
-    'cell': {
-      title: "Cells: Building Blocks of Life",
-      content: `Cells are the basic building blocks of all living things. They are microscopic structures that carry out all the functions necessary for life.
-
-**What are Cells?**
-• The smallest unit of life
-• All living organisms are made of cells
-• Human body contains trillions of cells
-• Each cell has a specific function
-
-**Cell Structure:**
-1. **Cell Membrane** - Protects and controls what enters/exits
-2. **Nucleus** - Contains genetic material (DNA)
-3. **Cytoplasm** - Gel-like substance where reactions occur
-4. **Organelles** - Specialized structures for specific tasks
-
-**Types of Cells:**
-• **Nerve cells** - Transmit electrical signals
-• **Muscle cells** - Enable movement
-• **Blood cells** - Transport oxygen and nutrients
-• **Skin cells** - Provide protection`,
-      keywords: ['cell', 'cells', 'nucleus', 'membrane', 'cytoplasm', 'organelles']
-    },
-    'heart': {
-      title: "The Human Heart",
-      content: `The heart is a muscular organ that pumps blood throughout the body, delivering oxygen and nutrients to all cells.
-
-**Heart Facts:**
-• Size: About the size of your fist
-• Weight: 8-10 ounces (250-300 grams)
-• Beats: 60-100 times per minute at rest
-• Daily beats: Over 100,000 times
-
-**Heart Structure:**
-1. **Four Chambers:**
-   - Right atrium and ventricle
-   - Left atrium and ventricle
-2. **Valves** - Prevent blood from flowing backward
-3. **Muscle tissue** - Contracts to pump blood
-
-**Blood Flow:**
-• Deoxygenated blood → Right side → Lungs
-• Oxygenated blood → Left side → Body`,
-      keywords: ['heart', 'blood', 'circulation', 'pump', 'chambers', 'valves']
-    },
-    'default': {
-      title: "Biology Fundamentals",
-      content: `Biology is the study of living organisms and their interactions with each other and their environment. It covers everything from tiny cells to complex ecosystems.
-
-**Key Areas in Biology:**
-1. **Cell Biology** - Studying the basic units of life
-2. **Genetics** - Understanding how traits are inherited
-3. **Ecology** - Examining how organisms interact with their environment
-4. **Evolution** - Studying how species change over time
-5. **Human Anatomy** - Understanding the human body structure
-
-**Why Study Biology?**
-• Understand how your body works
-• Learn about diseases and treatments
-• Appreciate the diversity of life
-• Make informed health decisions
-• Contribute to scientific discoveries`,
-      keywords: ['biology', 'life', 'organisms', 'cells', 'genetics', 'ecology']
-    }
-  },
-  'physics-teacher': {
-    'motion': {
-      title: "Motion and Forces",
-      content: `Motion is the change in position of an object over time. It's one of the fundamental concepts in physics that helps us understand how things move.
-
-**Types of Motion:**
-1. **Linear Motion** - Moving in a straight line
-2. **Circular Motion** - Moving in a circle
-3. **Oscillatory Motion** - Back and forth movement
-4. **Random Motion** - Unpredictable movement
-
-**Key Concepts:**
-• **Speed** - How fast something moves (distance/time)
-• **Velocity** - Speed with direction
-• **Acceleration** - How quickly velocity changes
-• **Force** - What causes motion to change
-
-**Newton's Laws of Motion:**
-1. **First Law** - Objects stay at rest or in motion unless acted upon by a force
-2. **Second Law** - Force = mass × acceleration
-3. **Third Law** - For every action, there's an equal and opposite reaction`,
-      keywords: ['motion', 'movement', 'speed', 'velocity', 'acceleration', 'force', 'newton']
-    },
-    'energy': {
-      title: "Forms of Energy",
-      content: `Energy is the ability to do work or cause change. It's a fundamental concept in physics that comes in many forms.
-
-**Types of Energy:**
-1. **Kinetic Energy** - Energy of motion
-   • Moving car, falling ball, flowing water
-2. **Potential Energy** - Stored energy
-   • Stretched rubber band, raised object, compressed spring
-3. **Thermal Energy** - Heat energy
-   • Hot coffee, warm air, steam
-4. **Electrical Energy** - Energy from electric charges
-   • Lightning, batteries, power lines
-5. **Chemical Energy** - Energy stored in chemical bonds
-   • Food, gasoline, explosives
-
-**Energy Conservation:**
-• Energy cannot be created or destroyed
-• It only changes from one form to another
-• Total energy in a system remains constant`,
-      keywords: ['energy', 'kinetic', 'potential', 'thermal', 'electrical', 'chemical']
-    },
-    'light': {
-      title: "Light and Optics",
-      content: `Light is a form of electromagnetic radiation that we can see. It travels in straight lines and can be reflected, refracted, and absorbed.
-
-**Properties of Light:**
-• **Speed** - 186,000 miles per second (300,000 km/s)
-• **Wavelength** - Determines color
-• **Intensity** - Determines brightness
-
-**Light Behavior:**
-1. **Reflection** - Light bounces off surfaces
-2. **Refraction** - Light bends when passing through different materials
-3. **Absorption** - Light is absorbed by materials
-4. **Diffraction** - Light bends around obstacles
-
-**Colors of Light:**
-• White light contains all colors
-• Primary colors: Red, Blue, Green
-• Mixing colors creates new colors`,
-      keywords: ['light', 'optics', 'reflection', 'refraction', 'color', 'wavelength']
-    },
-    'default': {
-      title: "Physics Fundamentals",
-      content: `Physics is the study of matter, energy, and their interactions. It helps us understand how the universe works at both the smallest and largest scales.
-
-**Main Branches of Physics:**
-1. **Mechanics** - Motion, forces, and energy
-2. **Thermodynamics** - Heat and energy transfer
-3. **Electromagnetism** - Electricity and magnetism
-4. **Optics** - Light and vision
-5. **Quantum Physics** - Behavior of very small particles
-
-**Why Study Physics?**
-• Understand how the world works
-• Develop problem-solving skills
-• Apply to engineering and technology
-• Explore the mysteries of the universe
-• Make scientific discoveries`,
-      keywords: ['physics', 'matter', 'energy', 'forces', 'motion', 'universe']
-    }
-  },
-  'chemistry-teacher': {
-    'acid': {
-      title: "Acids and Bases",
-      content: `Acids and bases are important chemical compounds that have opposite properties and are found everywhere in our daily lives.
-
-**What are Acids?**
-• Substances that release hydrogen ions (H+) in water
-• Taste sour (like lemon juice)
-• Turn blue litmus paper red
-• Conduct electricity when dissolved in water
-
-**What are Bases?**
-• Substances that release hydroxide ions (OH-) in water
-• Taste bitter and feel slippery
-• Turn red litmus paper blue
-• Also conduct electricity when dissolved
-
-**Common Examples:**
-• **Acids:** Lemon juice, vinegar, stomach acid, battery acid
-• **Bases:** Soap, baking soda, ammonia, drain cleaner
-
-**pH Scale:**
-• 0-6: Acidic
-• 7: Neutral (water)
-• 8-14: Basic`,
-      keywords: ['acid', 'acids', 'base', 'bases', 'ph', 'hydrogen', 'hydroxide']
-    },
-    'reaction': {
-      title: "Chemical Reactions",
-      content: `A chemical reaction is a process where substances (reactants) transform into new substances (products). It involves breaking and forming chemical bonds.
-
-**Types of Chemical Reactions:**
-1. **Synthesis** - Two or more substances combine
-2. **Decomposition** - One substance breaks down into simpler substances
-3. **Single Replacement** - One element replaces another
-4. **Double Replacement** - Two elements switch places
-5. **Combustion** - Substance reacts with oxygen, producing heat and light
-
-**Signs of a Chemical Reaction:**
-• Color change
-• Gas production (bubbles)
-• Temperature change
-• Formation of a solid (precipitate)
-• Odor change
-
-**Examples:**
-• Rusting of iron
-• Burning of wood
-• Baking a cake
-• Photosynthesis`,
-      keywords: ['reaction', 'chemical', 'reactants', 'products', 'bonds', 'synthesis']
-    },
-    'element': {
-      title: "Chemical Elements",
-      content: `Elements are pure substances made of only one type of atom. They are the building blocks of all matter in the universe.
-
-**Element Facts:**
-• There are 118 known elements
-• Elements are organized in the periodic table
-• Each element has unique properties
-• Elements can combine to form compounds
-• Some elements are naturally occurring, others are synthetic
-
-**Types of Elements:**
-1. **Metals** - Good conductors of heat and electricity
-2. **Nonmetals** - Poor conductors, often gases
-3. **Metalloids** - Properties between metals and nonmetals
-
-**Common Elements:**
-• **Hydrogen (H)** - Most abundant element in universe
-• **Carbon (C)** - Basis of all life
-• **Oxygen (O)** - Essential for breathing
-• **Iron (Fe)** - Important for blood and tools`,
-      keywords: ['element', 'elements', 'atom', 'atoms', 'periodic table', 'metal']
-    },
-    'default': {
-      title: "Chemistry Basics",
-      content: `Chemistry is the study of matter, its properties, and the changes it undergoes. It's often called the "central science" because it connects physics and biology.
-
-**Key Areas in Chemistry:**
-1. **Atomic Structure** - Understanding atoms and molecules
-2. **Chemical Bonding** - How atoms connect to form compounds
-3. **Reactions** - How substances change into new substances
-4. **Solutions** - Mixtures and concentrations
-5. **Organic Chemistry** - Carbon-based compounds
-
-**Why Study Chemistry?**
-• Understand the composition of materials
-• Learn about medicines and drugs
-• Develop new materials and technologies
-• Solve environmental problems
-• Make informed decisions about products`,
-      keywords: ['chemistry', 'matter', 'atoms', 'molecules', 'compounds', 'reactions']
-    }
-  }
-}
-
-// Helper function to parse related content from AI response
-const parseRelatedContent = (contentText, type) => {
-  if (!contentText || typeof contentText !== 'string') return []
-  
-  const lines = contentText.split('\n').filter(line => line.trim())
-  const items = []
-  
-  for (const line of lines) {
-    if (line.includes(':')) {
-      const parts = line.split(':')
-      if (parts.length >= 2) {
-        const title = parts[0].trim()
-        const rest = parts.slice(1).join(':').trim()
-        
-        if (type === 'article') {
-          // Parse "Title: Description - ThumbnailURL - URL" format
-          const urlMatch = rest.match(/\s*-\s*(https?:\/\/[^\s]+)/)
-          if (urlMatch) {
-            const beforeUrl = rest.replace(/\s*-\s*https?:\/\/[^\s]+/, '').trim()
-            const thumbnailMatch = beforeUrl.match(/\s*-\s*(https?:\/\/[^\s]+)/)
-            if (thumbnailMatch) {
-              const description = beforeUrl.replace(/\s*-\s*https?:\/\/[^\s]+/, '').trim()
-              items.push({
-                title: title,
-                description: description || 'Learn more about this topic',
-                thumbnailUrl: thumbnailMatch[1],
-                url: urlMatch[1]
-              })
-            } else {
-              // Fallback: no thumbnail provided
-              const description = beforeUrl.trim()
-              items.push({
-                title: title,
-                description: description || 'Learn more about this topic',
-                thumbnailUrl: null,
-                url: urlMatch[1]
-              })
-            }
-          }
-        } else if (type === 'video') {
-          // Parse "Title: Description - Duration - ThumbnailURL - URL" format
-          const urlMatch = rest.match(/\s*-\s*(https?:\/\/[^\s]+)/)
-          if (urlMatch) {
-            const beforeUrl = rest.replace(/\s*-\s*https?:\/\/[^\s]+/, '').trim()
-            const thumbnailMatch = beforeUrl.match(/\s*-\s*(https?:\/\/[^\s]+)/)
-            if (thumbnailMatch) {
-              const beforeThumbnail = beforeUrl.replace(/\s*-\s*https?:\/\/[^\s]+/, '').trim()
-              const durationMatch = beforeThumbnail.match(/\s*-\s*(\d{1,2}:\d{2})/)
-              if (durationMatch) {
-                const description = beforeThumbnail.replace(/\s*-\s*\d{1,2}:\d{2}/, '').trim()
-                items.push({
-                  title: title,
-                  description: description || 'Watch this educational video',
-                  duration: durationMatch[1],
-                  thumbnailUrl: thumbnailMatch[1],
-                  url: urlMatch[1]
-                })
-              }
-            } else {
-              // Fallback: no thumbnail provided
-              const beforeThumbnail = beforeUrl.trim()
-              const durationMatch = beforeThumbnail.match(/\s*-\s*(\d{1,2}:\d{2})/)
-              if (durationMatch) {
-                const description = beforeThumbnail.replace(/\s*-\s*\d{1,2}:\d{2}/, '').trim()
-                items.push({
-                  title: title,
-                  description: description || 'Watch this educational video',
-                  duration: durationMatch[1],
-                  thumbnailUrl: null,
-                  url: urlMatch[1]
-                })
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  return items.slice(0, type === 'article' ? 4 : 3) // Limit articles to 4, videos to 3
-}
-
-const getSuggestionTopic = (avatarType, prompt = '', answer = '') => {
-  const text = `${prompt} ${answer}`.toLowerCase()
-  const topicMap = {
-    'computer-teacher': [
-      ['javascript', ['javascript', ' js ', 'node']],
-      ['css', ['css', 'style', 'stylesheet']],
-      ['html', ['html', 'tag', 'web page']],
-      ['react', ['react', 'component', 'jsx']],
-      ['python', ['python']],
-      ['java programming', ['java ', 'oops', 'class', 'object']],
-      ['data structures', ['array', 'stack', 'queue', 'linked list', 'tree', 'algorithm']]
-    ],
-    'mathematics-teacher': [
-      ['algebra', ['algebra', 'equation', 'variable']],
-      ['geometry', ['geometry', 'triangle', 'circle', 'angle']],
-      ['calculus', ['calculus', 'derivative', 'integral']],
-      ['statistics', ['statistics', 'probability', 'mean', 'median']]
-    ],
-    'english-teacher': [
-      ['english grammar', ['grammar', 'tense', 'verb', 'noun']],
-      ['writing skills', ['writing', 'essay', 'paragraph']],
-      ['english literature', ['literature', 'poem', 'story']]
-    ],
-    'biology-teacher': [
-      ['cell biology', ['cell', 'nucleus', 'membrane']],
-      ['genetics', ['genetic', 'dna', 'gene']],
-      ['photosynthesis', ['photosynthesis', 'chlorophyll']],
-      ['human anatomy', ['heart', 'brain', 'body', 'organ']]
-    ],
-    'physics-teacher': [
-      ['force and motion', ['force', 'motion', 'newton', 'speed']],
-      ['energy', ['energy', 'kinetic', 'potential']],
-      ['electricity', ['electricity', 'current', 'voltage']],
-      ['light and optics', ['light', 'reflection', 'refraction']]
-    ],
-    'chemistry-teacher': [
-      ['chemical reactions', ['reaction', 'reactant', 'product']],
-      ['periodic table', ['periodic', 'element', 'atom']],
-      ['acids and bases', ['acid', 'base', 'ph']]
-    ],
-    'history-teacher': [
-      ['world history', ['world war', 'history', 'civilization']],
-      ['indian history', ['india', 'ashoka', 'mughal', 'freedom']]
-    ],
-    'geography-teacher': [
-      ['physical geography', ['mountain', 'river', 'earth', 'landform']],
-      ['climate and weather', ['climate', 'weather', 'rainfall']]
-    ],
-    'hindi-teacher': [
-      ['hindi grammar', ['व्याकरण', 'grammar', 'संज्ञा', 'क्रिया']],
-      ['hindi writing', ['लेखन', 'निबंध', 'पत्र']],
-      ['hindi literature', ['कविता', 'कहानी', 'साहित्य']]
-    ],
-    doctor: [
-      ['nutrition and health', ['food', 'nutrition', 'diet', 'eat']],
-      ['exercise and fitness', ['exercise', 'fitness', 'workout']],
-      ['first aid', ['first aid', 'injury', 'wound']]
-    ],
-    engineer: [
-      ['engineering design', ['design', 'engineering', 'structure']],
-      ['mechanical engineering', ['machine', 'mechanical', 'gear']],
-      ['electrical engineering', ['circuit', 'electrical', 'voltage']]
-    ],
-    lawyer: [
-      ['legal rights', ['rights', 'law', 'legal']],
-      ['constitution', ['constitution', 'fundamental rights']],
-      ['consumer law', ['consumer', 'complaint']]
-    ]
-  }
-
-  const matches = topicMap[avatarType] || []
-  const matched = matches.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))
-  if (matched) return matched[0]
-
-  const fallbackTopic = {
-    'computer-teacher': 'programming basics',
-    'mathematics-teacher': 'mathematics basics',
-    'english-teacher': 'english learning',
-    'biology-teacher': 'biology basics',
-    'physics-teacher': 'physics basics',
-    'chemistry-teacher': 'chemistry basics',
-    'history-teacher': 'history basics',
-    'geography-teacher': 'geography basics',
-    'hindi-teacher': 'hindi learning',
-    doctor: 'health basics',
-    engineer: 'engineering basics',
-    lawyer: 'legal basics'
-  }
-
-  return fallbackTopic[avatarType] || 'learning basics'
-}
-
-const buildSearchUrl = (baseUrl, query) => `${baseUrl}${encodeURIComponent(query)}`
-
-// Helper function to generate fallback articles
-const generateFallbackArticles = (avatarType, prompt = '', answer = '') => {
-  const topic = getSuggestionTopic(avatarType, prompt, answer)
-  const fallbackArticles = {
-    'computer-teacher': [
-              { title: `Learn ${topic}`, description: `Clear article resources about ${topic}.`, url: buildSearchUrl("https://developer.mozilla.org/en-US/search?q=", topic) },
-              { title: `${topic} Tutorial`, description: `Beginner-friendly tutorial for ${topic}.`, url: buildSearchUrl("https://www.w3schools.com/search/search.php?q=", topic) },
-              { title: `${topic} Practice`, description: `Practice and examples for ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) }
-    ],
-    'mathematics-teacher': [
-              { title: `Learn ${topic}`, description: `Step-by-step math resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
-              { title: `${topic} Explained`, description: `Simple explanations and examples for ${topic}.`, url: buildSearchUrl("https://www.mathsisfun.com/search/search.php?query=", topic) },
-              { title: `${topic} Practice`, description: `Practice problems related to ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} math practice`) }
-    ],
-    'english-teacher': [
-              { title: `Learn ${topic}`, description: `Useful article resources about ${topic}.`, url: buildSearchUrl("https://www.grammarly.com/blog/search/", topic) },
-              { title: `${topic} Guide`, description: `Trusted writing and English guidance for ${topic}.`, url: buildSearchUrl("https://owl.purdue.edu/search.html?q=", topic) },
-              { title: `${topic} Examples`, description: `Examples and explanations for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} English examples`) }
-    ],
-    'biology-teacher': [
-              { title: `Learn ${topic}`, description: `Biology article resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
-              { title: `${topic} Overview`, description: `Simple science explanations for ${topic}.`, url: buildSearchUrl("https://www.britannica.com/search?query=", topic) },
-              { title: `${topic} Notes`, description: `Student-friendly notes on ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} biology notes`) }
-    ],
-    'physics-teacher': [
-              { title: `Learn ${topic}`, description: `Physics resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
-              { title: `${topic} Explained`, description: `Student-friendly explanations for ${topic}.`, url: buildSearchUrl("https://www.physicsclassroom.com/search?search=", topic) },
-              { title: `${topic} Practice`, description: `Examples and practice for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} physics practice`) }
-    ],
-    'chemistry-teacher': [
-              { title: `Learn ${topic}`, description: `Chemistry resources about ${topic}.`, url: buildSearchUrl("https://www.khanacademy.org/search?page_search_query=", topic) },
-              { title: `${topic} Guide`, description: `Reliable chemistry guide for ${topic}.`, url: buildSearchUrl("https://www.rsc.org/search?query=", topic) },
-              { title: `${topic} Examples`, description: `Examples and notes for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} chemistry notes`) }
-    ],
-    'history-teacher': [
-              { title: "World History", description: "Major historical events", url: "https://www.khanacademy.org/humanities/world-history" },
-              { title: "Ancient Civilizations", description: "Early human societies", url: "https://www.khanacademy.org/humanities/ancient-art-civilizations" },
-              { title: "Modern History", description: "Recent historical developments", url: "https://www.khanacademy.org/humanities/us-history" }
-    ],
-    'geography-teacher': [
-              { title: "Physical Geography", description: "Earth's natural features", url: "https://www.khanacademy.org/humanities/geography" },
-              { title: "World Maps", description: "Understanding global geography", url: "https://www.nationalgeographic.org/maps/" },
-              { title: "Climate & Weather", description: "Atmospheric conditions", url: "https://www.khanacademy.org/science/weather-and-climate" }
-    ],
-    'hindi-teacher': [
-              { title: "Hindi Grammar", description: "हिंदी व्याकरण के नियम", url: "https://www.hindigranth.com/" },
-              { title: "Hindi Literature", description: "हिंदी साहित्य का अध्ययन", url: "https://www.hindisahitya.com/" },
-              { title: "Hindi Writing", description: "हिंदी लेखन कौशल", url: "https://www.hindigranth.com/" }
-    ],
-    'doctor': [
-              { title: "Health Basics", description: "Fundamental health concepts", url: "https://www.mayoclinic.org/healthy-lifestyle" },
-              { title: "Nutrition Guide", description: "Healthy eating principles", url: "https://www.nutrition.gov/" },
-              { title: "Exercise & Fitness", description: "Physical activity guidelines", url: "https://www.cdc.gov/physicalactivity/index.html" }
-    ],
-    'engineer': [
-              { title: "Engineering Basics", description: "Fundamental engineering concepts", url: "https://www.khanacademy.org/science/engineering" },
-              { title: "Mechanical Engineering", description: "Machines and mechanisms", url: "https://www.khanacademy.org/science/mechanical-engineering" },
-              { title: "Electrical Engineering", description: "Circuits and electronics", url: "https://www.khanacademy.org/science/electrical-engineering" }
-    ],
-    'lawyer': [
-              { title: "Legal Basics", description: "Fundamental legal concepts", url: "https://www.law.cornell.edu/" },
-              { title: "Constitutional Law", description: "Understanding the constitution", url: "https://constitutioncenter.org/" },
-              { title: "Civil Rights", description: "Individual rights and freedoms", url: "https://www.aclu.org/" }
-    ]
-  }
-  
-  const genericArticles = [
-    { title: `Learn ${topic}`, description: `Article resources directly related to ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} student article`) },
-    { title: `${topic} Notes`, description: `Student-friendly notes and examples for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} notes for students`) },
-    { title: `${topic} Practice`, description: `Practice questions and explanations for ${topic}.`, url: buildSearchUrl("https://www.google.com/search?q=", `${topic} practice questions`) }
-  ]
-
-  return fallbackArticles[avatarType] || genericArticles
-}
-
-// Helper function to generate fallback videos
-const generateFallbackVideos = (avatarType, prompt = '', answer = '') => {
-  const topic = getSuggestionTopic(avatarType, prompt, answer)
-  const youtubeSearch = buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} tutorial for students`)
-  const fallbackVideos = {
-    'computer-teacher': [
-      { title: `${topic} Video Tutorial`, description: `Watch videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} for Beginners`, description: `Beginner-friendly videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} beginner tutorial`) }
-    ],
-    'mathematics-teacher': [
-      { title: `${topic} Video Lesson`, description: `Video lessons related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} Practice Videos`, description: `Practice videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} solved examples`) }
-    ],
-    'english-teacher': [
-      { title: `${topic} Video Lesson`, description: `Video lessons related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} Examples`, description: `Examples and practice videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} English lesson`) }
-    ],
-    'biology-teacher': [
-      { title: `${topic} Video Lesson`, description: `Biology videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} Animation`, description: `Visual explanation videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} biology animation`) }
-    ],
-    'physics-teacher': [
-      { title: `${topic} Video Lesson`, description: `Physics videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} Examples`, description: `Solved examples for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} physics examples`) }
-    ],
-    'chemistry-teacher': [
-      { title: `${topic} Video Lesson`, description: `Chemistry videos related to ${topic}.`, duration: "Search", url: youtubeSearch },
-      { title: `${topic} Examples`, description: `Examples and experiments for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} chemistry examples`) }
-    ],
-    'history-teacher': [
-      { title: "World History Overview", description: "Major historical events", duration: "17:25", url: "https://www.youtube.com/watch?v=Yocja_N5s1I" },
-      { title: "Ancient Civilizations", description: "Early human societies", duration: "20:10", url: "https://www.youtube.com/watch?v=8ZtInClXe1Q" }
-    ],
-    'geography-teacher': [
-      { title: "Physical Geography", description: "Earth's natural features", duration: "16:45", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "World Geography", description: "Global geographical features", duration: "18:20", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
-    ],
-    'hindi-teacher': [
-      { title: "हिंदी व्याकरण", description: "Basic Hindi grammar rules", duration: "14:15", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "हिंदी लेखन", description: "Hindi writing skills", duration: "16:50", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
-    ],
-    'doctor': [
-      { title: "Health Basics", description: "Fundamental health concepts", duration: "15:30", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "Nutrition Guide", description: "Healthy eating principles", duration: "18:45", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
-    ],
-    'engineer': [
-      { title: "Engineering Fundamentals", description: "Basic engineering concepts", duration: "16:20", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "Mechanical Engineering", description: "Machines and mechanisms", duration: "19:15", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
-    ],
-    'lawyer': [
-      { title: "Legal Basics", description: "Fundamental legal concepts", duration: "17:40", url: "https://www.youtube.com/watch?v=7DjsD7Hcd9U" },
-      { title: "Constitutional Law", description: "Understanding the constitution", duration: "20:25", url: "https://www.youtube.com/watch?v=0RRVV4Diomg" }
-    ]
-  }
-  
-  const genericVideos = [
-    { title: `${topic} Video Lesson`, description: `Video lessons directly related to ${topic}.`, duration: "Search", url: youtubeSearch },
-    { title: `${topic} Explained`, description: `Simple explanation videos for ${topic}.`, duration: "Search", url: buildSearchUrl("https://www.youtube.com/results?search_query=", `${topic} explained for students`) }
-  ]
-
-  return fallbackVideos[avatarType] || genericVideos
-}
-
-// Helper function to get quota status information
-const getQuotaStatus = () => {
-  return {
-    message: "Free tier limit reached",
-    details: "You've used all 50 free API calls for today",
-    resetTime: "Resets at midnight (UTC)",
-    alternatives: [
-      "Explore the suggested educational resources below",
-      "Try again tomorrow when the quota resets",
-      "Consider upgrading to a paid plan for unlimited access"
-    ]
-  }
-}
-
-// Enhanced intelligent fallback that searches the offline knowledge base
-const generateIntelligentFallback = (avatarType, prompt) => {
-  // First, try to find a specific match in the offline knowledge base
-  const avatarKnowledge = OFFLINE_KNOWLEDGE_BASE[avatarType]
-  if (avatarKnowledge) {
-    const promptLower = prompt.toLowerCase()
-    
-    // Search for specific topic matches
-    for (const [topic, knowledge] of Object.entries(avatarKnowledge)) {
-      if (topic !== 'default') {
-        // Check if any keywords match the prompt
-        const hasKeywordMatch = knowledge.keywords.some(keyword => 
-          promptLower.includes(keyword)
-        )
-        
-        if (hasKeywordMatch) {
-          return knowledge.content
-        }
-      }
-    }
-    
-    // Return default knowledge for the avatar
-    return avatarKnowledge.default.content
-  }
-  
-  // Fallback to the original intelligent responses if no offline knowledge
-  const fallbackResponses = {
-    'computer-teacher': {
-      'javascript': `JavaScript is a programming language used to make websites interactive. HTML gives a page structure, CSS gives it style, and JavaScript adds behavior.
-
-Key JavaScript ideas include:
-• Variables - store values like names, numbers, and settings
-• Functions - reusable blocks of code
-• Events - actions like clicks, typing, or page loading
-• DOM manipulation - changing page content with code
-• APIs - sending and receiving data from servers
-
-Example:
-\`\`\`javascript
-function greet(name) {
-  return "Hello, " + name + "!";
-}
-
-console.log(greet("Student"));
-\`\`\`
-
-JavaScript is used in frontend apps with React and Next.js, backend servers with Node.js, mobile apps, browser extensions, and many automation tools.`,
-      'html': `HTML stands for HyperText Markup Language. It gives a web page its structure by describing headings, paragraphs, links, images, forms, and other content.
-
-Key HTML concepts include:
-• Elements - building blocks like headings, buttons, and inputs
-• Tags - markup such as <h1>, <p>, and <button>
-• Attributes - extra information like href, src, class, and id
-• Semantic HTML - meaningful tags that improve accessibility and SEO
-
-Example:
-\`\`\`html
-<h1>My Page</h1>
-<p>Welcome to my website.</p>
-<button>Click me</button>
-\`\`\``,
-      'css': `CSS stands for Cascading Style Sheets. It controls how a web page looks, including colors, spacing, fonts, layout, and responsive design.
-
-Key CSS concepts include:
-• Selectors - choose which elements to style
-• Properties - define styles like color, margin, and display
-• Flexbox and Grid - create layouts
-• Media queries - adapt designs for mobile and desktop
-• Animations - add motion and transitions
-
-Example:
-\`\`\`css
-button {
-  background: blue;
-  color: white;
-  padding: 12px 16px;
-}
-\`\`\``,
-      'react': `React is a JavaScript library for building user interfaces. It lets developers create reusable components and update the screen efficiently when data changes.
-
-Key React concepts include:
-• Components - reusable UI pieces
-• Props - data passed into components
-• State - data that changes over time
-• Hooks - functions like useState and useEffect
-• JSX - HTML-like syntax inside JavaScript
-
-Example:
-\`\`\`javascript
-import { useState } from "react";
-
-export default function Counter() {
-  const [count, setCount] = useState(0);
-  return <button onClick={() => setCount(count + 1)}>{count}</button>;
-}
-\`\`\``,
-      'default': `Computer science is the study of computers, software, data, and problem-solving. It teaches you how to write programs, build applications, understand algorithms, and create technology.
-
-Key areas in computer science include:
-• Programming - writing instructions for computers
-• Web development - building websites and apps
-• Data structures - organizing information efficiently
-• Algorithms - step-by-step problem solving
-• Databases - storing and retrieving data
-• AI and automation - making systems smarter
-
-You can ask me about JavaScript, HTML, CSS, React, Next.js, Python, Java, algorithms, debugging, or how to build a project.`
-    },
-    'biology-teacher': {
-      'brain': `The brain is the command center of the human body, controlling all our thoughts, movements, and bodily functions. It's made up of billions of nerve cells called neurons that communicate through electrical and chemical signals.
-
-Key facts about the brain:
-• It weighs about 3 pounds (1.4 kg)
-• Contains approximately 86 billion neurons
-• Uses 20% of the body's total energy
-• Controls memory, learning, emotions, and behavior
-• Protected by the skull and cerebrospinal fluid
-
-The brain has three main parts: the cerebrum (thinking and voluntary actions), cerebellum (balance and coordination), and brainstem (basic life functions like breathing and heart rate).`,
-      'cell': `Cells are the basic building blocks of all living things. They are microscopic structures that carry out all the functions necessary for life.
-
-Key facts about cells:
-• All living organisms are made of cells
-• Human body contains trillions of cells
-• Cells have different shapes and sizes for different functions
-• Each cell contains organelles that perform specific tasks
-• Cells can reproduce and repair themselves`,
-      'default': `Biology is the study of living organisms and their interactions with each other and their environment. It covers everything from tiny cells to complex ecosystems.
-
-Key areas in biology include:
-• Cell biology - studying the basic units of life
-• Genetics - understanding how traits are inherited
-• Ecology - examining how organisms interact with their environment
-• Evolution - studying how species change over time
-• Human anatomy - understanding the human body structure`
-    },
-    'physics-teacher': {
-      'motion': `Motion is the change in position of an object over time. It's one of the fundamental concepts in physics that helps us understand how things move.
-
-Key concepts in motion:
-• Speed - how fast something moves
-• Velocity - speed with direction
-• Acceleration - how quickly velocity changes
-• Force - what causes motion to change
-• Newton's Laws - the rules that govern motion`,
-      'energy': `Energy is the ability to do work or cause change. It's a fundamental concept in physics that comes in many forms.
-
-Types of energy include:
-• Kinetic energy - energy of motion
-• Potential energy - stored energy
-• Thermal energy - heat energy
-• Electrical energy - energy from electric charges
-• Chemical energy - energy stored in chemical bonds`,
-      'default': `Physics is the study of matter, energy, and their interactions. It helps us understand how the universe works at both the smallest and largest scales.
-
-Key areas in physics include:
-• Mechanics - motion and forces
-• Thermodynamics - heat and energy
-• Electromagnetism - electricity and magnetism
-• Optics - light and vision
-• Quantum physics - behavior of very small particles`
-    },
-    'chemistry-teacher': {
-      'reaction': `A chemical reaction is a process where substances (reactants) transform into new substances (products). It involves breaking and forming chemical bonds.
-
-Key concepts in chemical reactions:
-• Reactants - starting materials
-• Products - ending materials
-• Chemical equations - balanced formulas
-• Energy changes - exothermic vs endothermic
-• Catalysts - substances that speed up reactions`,
-      'element': `Elements are pure substances made of only one type of atom. They are the building blocks of all matter in the universe.
-
-Key facts about elements:
-• There are 118 known elements
-• Elements are organized in the periodic table
-• Each element has unique properties
-• Elements can combine to form compounds
-• Some elements are naturally occurring, others are synthetic`,
-      'default': `Chemistry is the study of matter, its properties, and the changes it undergoes. It's often called the "central science" because it connects physics and biology.
-
-Key areas in chemistry include:
-• Atomic structure - understanding atoms and molecules
-• Chemical bonding - how atoms connect
-• Reactions - how substances change
-• Solutions - mixtures and concentrations
-• Organic chemistry - carbon-based compounds`
-    },
-    'mathematics-teacher': {
-      'algebra': `Algebra is a branch of mathematics that uses letters and symbols to represent numbers and quantities in formulas and equations.
-
-Key concepts in algebra:
-• Variables - letters that represent unknown values
-• Equations - mathematical statements with equals signs
-• Solving - finding the value of variables
-• Functions - relationships between variables
-• Polynomials - expressions with multiple terms`,
-      'geometry': `Geometry is the study of shapes, sizes, positions, and dimensions of objects. It helps us understand the world around us.
-
-Key concepts in geometry:
-• Points, lines, and planes
-• Angles and measurements
-• Triangles, circles, and polygons
-• Area and perimeter
-• Volume and surface area`,
-      'default': `Mathematics is the study of numbers, quantities, shapes, and patterns. It's a fundamental tool used in science, engineering, and everyday life.
-
-Key areas in mathematics include:
-• Arithmetic - basic operations with numbers
-• Algebra - using letters and symbols
-• Geometry - studying shapes and space
-• Calculus - rates of change and accumulation
-• Statistics - collecting and analyzing data`
-    },
-    'english-teacher': {
-      'grammar': `Grammar is the set of rules that govern how words are used to form sentences. It helps us communicate clearly and effectively.
-
-Key grammar concepts include:
-• Parts of speech (nouns, verbs, adjectives)
-• Sentence structure and punctuation
-• Subject-verb agreement
-• Tenses and verb forms
-• Proper word usage`,
-      'writing': `Writing is the process of creating text to communicate ideas, stories, or information. Good writing is clear, organized, and engaging.
-
-Key writing skills include:
-• Planning and organization
-• Clear and concise language
-• Proper grammar and punctuation
-• Engaging introductions and conclusions
-• Revising and editing`,
-      'default': `English is a rich and complex language used for communication, literature, and learning. It has evolved over centuries and is now one of the most widely spoken languages.
-
-Key areas in English include:
-• Grammar - rules for using words correctly
-• Vocabulary - building word knowledge
-• Reading comprehension - understanding written text
-• Writing - expressing ideas clearly
-• Literature - appreciating written works`
-    }
-  }
-  
-  // Get the specific avatar responses
-  const avatarConfig = AVATAR_CONFIG[avatarType]
-  const genericAvatarFallback = {
-    default: avatarConfig
-      ? `${avatarConfig.name} can help you with ${avatarConfig.domain}. Please ask your question again with a little more detail, and I will explain it step by step with simple examples.`
-      : 'Please ask your question again with a little more detail, and I will explain it step by step with simple examples.'
-  }
-  const avatarResponses = fallbackResponses[avatarType] || genericAvatarFallback
-  
-  // Check if we have a specific response for the prompt
-  const promptLower = prompt.toLowerCase()
-  for (const [key, response] of Object.entries(avatarResponses)) {
-    if (key !== 'default' && promptLower.includes(key)) {
-      return response
-    }
-  }
-  
-  // Return default response for the avatar
-  return avatarResponses.default || genericAvatarFallback.default
-}
 
 // Helper function to parse JSON body with multiple fallbacks
 const parseBody = (req) => {
@@ -977,14 +126,66 @@ const callChatGPT = async (prompt, avatarType, sessionId) => {
     { role: 'user', content: prompt }
   ]
 
-  const response = await openai.chat.completions.create({
-    model: OPENAI_MODEL,
-    messages: messages,
-    max_tokens: AI_MAX_OUTPUT_TOKENS,
-    temperature: 0.7,
-  })
+  console.log(`[AI REQUEST] Type: ChatGPT | Avatar: ${avatarType} | Session: ${sessionId}`)
+  console.log(`[AI REQUEST] Prompt: "${prompt}"`)
+  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
 
-  return response.choices[0].message.content
+  try {
+    const response = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: messages,
+      max_tokens: AI_MAX_OUTPUT_TOKENS,
+      temperature: 0.7,
+    })
+
+    const text = response.choices[0].message.content
+    console.log(`[AI RESPONSE] Type: ChatGPT Success | Model: ${OPENAI_MODEL} | Output: "${text.substring(0, 100)}..."`)
+    return text
+  } catch (error) {
+    console.error(`[API ERROR] ChatGPT failed:`, error.message)
+    throw error
+  }
+}
+
+// Call Groq OpenAI-compatible API with ordered model fallbacks
+const callGroq = async (prompt, avatarType, sessionId) => {
+  const systemPrompt = getCachedSystemPrompt(avatarType)
+  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history.map(msg => ({ role: msg.role, content: msg.content })),
+    { role: 'user', content: prompt }
+  ]
+  const errors = []
+
+  console.log(`[AI REQUEST] Type: Groq | Avatar: ${avatarType} | Session: ${sessionId}`)
+  console.log(`[AI REQUEST] Prompt: "${prompt}"`)
+  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
+
+  for (const modelName of GROQ_MODELS) {
+    try {
+      console.log(`[AI REQUEST] Attempting Groq model: ${modelName}`)
+      const response = await groq.chat.completions.create({
+        model: modelName,
+        messages,
+        max_tokens: AI_MAX_OUTPUT_TOKENS,
+        temperature: 0.7,
+      })
+      const text = response.choices?.[0]?.message?.content?.trim()
+
+      if (text) {
+        console.log(`[AI RESPONSE] Type: Groq Success | Model: ${modelName} | Output: "${text.substring(0, 100)}..."`)
+        return { text, modelName }
+      }
+
+      errors.push(`${modelName}: empty response`)
+    } catch (error) {
+      console.error(`[API ERROR] Groq model ${modelName} failed:`, error.message)
+      errors.push(`${modelName}: ${error.message}`)
+    }
+  }
+
+  throw new Error(errors.join(' | '))
 }
 
 // Call Gemini API
@@ -1003,8 +204,13 @@ Answer quickly in 2-4 short bullet points or short paragraphs. Use simple words.
 
   const errors = []
 
+  console.log(`[AI REQUEST] Type: Gemini | Avatar: ${avatarType} | Session: ${sessionId}`)
+  console.log(`[AI REQUEST] Prompt: "${prompt}"`)
+  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
+
   for (const modelName of GEMINI_MODELS) {
     try {
+      console.log(`[AI REQUEST] Attempting Gemini model: ${modelName}`)
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
@@ -1019,11 +225,13 @@ Answer quickly in 2-4 short bullet points or short paragraphs. Use simple words.
       const text = result.response.text().trim()
 
       if (text) {
+        console.log(`[AI RESPONSE] Type: Gemini Success | Model: ${modelName} | Output: "${text.substring(0, 100)}..."`)
         return { text, modelName }
       }
 
       errors.push(`${modelName}: empty response`)
     } catch (error) {
+      console.error(`[API ERROR] Gemini model ${modelName} failed:`, error.message)
       errors.push(`${modelName}: ${error.message}`)
     }
   }
@@ -1170,9 +378,10 @@ export default async function handler(req, res) {
     // Check for API keys
     const hasGeminiKey = !!process.env.GEMINI_API_KEY
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY
+    const hasGroqKey = !!process.env.GROQ_API_KEY
     
-    if (!hasGeminiKey && !hasOpenAIKey) {
-      console.error('❌ No API keys found. Please set GEMINI_API_KEY or OPENAI_API_KEY environment variables')
+    if (!hasGeminiKey && !hasOpenAIKey && !hasGroqKey) {
+      console.error('No API keys found. Please set GEMINI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY environment variables')
       
       // Generate intelligent fallback response
       const fallbackResponse = generateIntelligentFallback(avatarType, prompt)
@@ -1194,6 +403,7 @@ export default async function handler(req, res) {
 
     console.log('🔑 Available APIs:', { 
       gemini: hasGeminiKey, 
+      groq: hasGroqKey,
       openai: hasOpenAIKey 
     })
 
@@ -1207,13 +417,33 @@ export default async function handler(req, res) {
     let apiUsed = 'none'
     let apiError = null
 
-    // Try APIs in order of preference (Gemini first, then ChatGPT)
-    if (hasGeminiKey) {
+    // Try APIs: Groq first (fastest), then Gemini, then OpenAI as fallback
+    // Try Groq first if available (llama-3.1-8b-instant — very fast)
+    if (hasGroqKey && !aiResponse) {
       try {
-        console.log('🤖 Trying Gemini API first...')
+        console.log('🤖 Trying Groq API (llama-3.1-8b-instant)...')
+        const groqResponse = await Promise.race([
+          callGroq(prompt, avatarType, sessionId),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS)
+          )
+        ])
+        aiResponse = groqResponse.text
+        apiUsed = `groq:${groqResponse.modelName}`
+        console.log('✅ Groq API success')
+      } catch (error) {
+        console.warn('⚠️ Groq API failed:', error.message)
+        apiError = error.message
+      }
+    }
+
+    // Fallback to Gemini if Groq failed or not available
+    if (hasGeminiKey && !aiResponse) {
+      try {
+        console.log('🤖 Trying Gemini API...')
         const geminiResponse = await Promise.race([
           callGemini(prompt, avatarType, sessionId),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Gemini API timeout')), AI_TIMEOUT_MS)
           )
         ])
@@ -1226,7 +456,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fallback to ChatGPT if Gemini failed or not available
+    // Fallback to ChatGPT if Groq and Gemini failed or are not available
     if (!aiResponse && hasOpenAIKey) {
       try {
         console.log('🤖 Trying ChatGPT API as fallback...')
@@ -1244,9 +474,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // If both APIs failed, use intelligent fallback
+    // If all APIs failed, use intelligent fallback
     if (!aiResponse) {
-      console.log('🔄 Both APIs failed, using intelligent fallback')
+      console.log('All APIs failed, using intelligent fallback')
       aiResponse = generateIntelligentFallback(avatarType, prompt)
       apiUsed = 'fallback'
     }

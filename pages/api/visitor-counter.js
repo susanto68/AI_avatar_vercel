@@ -4,10 +4,14 @@ import path from 'path'
 const DEFAULT_GLOBAL_COUNT = 503
 const DEFAULT_INDIA_COUNT = 2129
 const ACTIVE_WINDOW_MS = 90000
+const COUNTED_SESSION_WINDOW_MS = 12 * 60 * 60 * 1000
 const counterFilePath = path.join(process.cwd(), '.data', 'visitor-counts.json')
 
 const activeVisitors = globalThis.__aiAvatarActiveVisitors || new Map()
 globalThis.__aiAvatarActiveVisitors = activeVisitors
+
+const countedVisitorSessions = globalThis.__aiAvatarCountedVisitorSessions || new Map()
+globalThis.__aiAvatarCountedVisitorSessions = countedVisitorSessions
 
 let cachedCounts = globalThis.__aiAvatarVisitorCounts || null
 
@@ -26,11 +30,25 @@ const pruneActiveVisitors = () => {
   }
 }
 
+const pruneCountedSessions = () => {
+  const cutoff = Date.now() - COUNTED_SESSION_WINDOW_MS
+
+  for (const [visitorId, countedAt] of countedVisitorSessions.entries()) {
+    if (countedAt < cutoff) {
+      countedVisitorSessions.delete(visitorId)
+    }
+  }
+}
+
+const getActiveCount = () => {
+  pruneActiveVisitors()
+  return activeVisitors.size
+}
+
 const trackActiveVisitor = (visitorSessionId, fallbackId) => {
   const visitorId = visitorSessionId || fallbackId || `visitor-${Date.now()}`
   activeVisitors.set(visitorId, Date.now())
-  pruneActiveVisitors()
-  return activeVisitors.size
+  return getActiveCount()
 }
 
 const loadCounts = async () => {
@@ -67,6 +85,26 @@ const saveCounts = async (counts) => {
 }
 
 export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    try {
+      const counts = await loadCounts()
+
+      return res.status(200).json({
+        success: true,
+        globalCount: counts.globalCount,
+        indiaCount: counts.indiaCount,
+        activeCount: getActiveCount(),
+        totalCount: counts.globalCount + counts.indiaCount
+      })
+    } catch (error) {
+      console.error('Visitor counter read error:', error)
+      return res.status(500).json({
+        error: 'Failed to read visitor counter',
+        details: error.message
+      })
+    }
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -79,16 +117,32 @@ export default async function handler(req, res) {
     const activeCount = trackActiveVisitor(visitorSessionId, `${clientIP}-${userAgent || 'unknown'}`)
     const counts = await loadCounts()
 
-    if (mode === 'heartbeat') {
+    if (mode !== 'visit' || !visitorSessionId) {
       return res.status(200).json({
         success: true,
         globalCount: counts.globalCount,
         indiaCount: counts.indiaCount,
         activeCount,
         totalCount: counts.globalCount + counts.indiaCount,
+        counted: false,
         message: 'Visitor active'
       })
     }
+
+    pruneCountedSessions()
+    if (countedVisitorSessions.has(visitorSessionId)) {
+      return res.status(200).json({
+        success: true,
+        globalCount: counts.globalCount,
+        indiaCount: counts.indiaCount,
+        activeCount,
+        totalCount: counts.globalCount + counts.indiaCount,
+        counted: false,
+        message: 'Visitor session already counted'
+      })
+    }
+
+    countedVisitorSessions.set(visitorSessionId, Date.now())
 
     const isIndia = countryCode === 'IN'
     const nextCounts = {
@@ -114,6 +168,7 @@ export default async function handler(req, res) {
       indiaCount: nextCounts.indiaCount,
       activeCount,
       totalCount: nextCounts.globalCount + nextCounts.indiaCount,
+      counted: true,
       message: `${isIndia ? 'Indian' : 'International'} visitor counted`,
       note: 'Counts stored locally for this app server'
     })

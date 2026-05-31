@@ -73,6 +73,18 @@ module.exports = {
           '0%, 100%': { transform: 'rotate(-3deg)' },
           '50%': { transform: 'rotate(3deg)' },
         },
+        mouthMove: {
+          '0%, 100%': { transform: 'scaleY(1)' },
+          '50%': { transform: 'scaleY(1.6)' },
+        },
+        avatarBreathe: {
+          '0%, 100%': { transform: 'scale(1) translateY(0)' },
+          '50%': { transform: 'scale(1.015) translateY(-2px)' },
+        },
+        idleFloat: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-4px)' },
+        },
       },
       backdropBlur: {
         xs: '2px',
