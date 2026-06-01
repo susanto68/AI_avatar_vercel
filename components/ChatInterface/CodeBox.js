@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function CodeBox({ code }) {
+export default function CodeBox({ code, language = 'code' }) {
   const [copied, setCopied] = useState(false)
 
   const copyToClipboard = async () => {
@@ -16,7 +16,7 @@ export default function CodeBox({ code }) {
   return (
     <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-gray-300 text-xs sm:text-sm font-mono">javascript</span>
+        <span className="text-gray-300 text-xs sm:text-sm font-mono">{language || 'code'}</span>
         <button
           onClick={copyToClipboard}
           className="text-gray-400 hover:text-white text-xs sm:text-sm flex items-center gap-1 transition-colors"

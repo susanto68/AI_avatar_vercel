@@ -45,6 +45,7 @@ export default function AvatarChat() {
   const [isProcessing, setApiProcessing]    = useState(false)
   const [apiError, setApiError]             = useState(null)
   const [codeContent, setCodeContent]       = useState('')
+  const [codeLanguage, setCodeLanguage]     = useState('code')
   const [relatedArticles, setRelatedArticles] = useState([])
   const [relatedVideos, setRelatedVideos]   = useState([])
   const [showError, setShowError]           = useState(false)
@@ -197,6 +198,12 @@ export default function AvatarChat() {
   // ── Start voice listening ──────────────────────────────────────────────────
   const handleStartListening = async () => {
     unlockAudio()   // synchronous unlock on this click
+    stopSpeaking()
+    setIsSpeaking(false)
+    setIsPaused(false)
+    setQuestionText('')
+    resetTranscript()
+    clearSpeechError()
     setShowError(false)
     try { await startListening() }
     catch (e) { console.error('Mic error:', e); setShowError(true) }
@@ -240,6 +247,7 @@ export default function AvatarChat() {
 
         setCurrentText(responseText)
         setCodeContent(data.part2 || '')
+        setCodeLanguage(data.language || 'code')
         setRelatedArticles(data.relatedArticles || [])
         setRelatedVideos(data.relatedVideos || [])
 
@@ -283,8 +291,9 @@ export default function AvatarChat() {
   useEffect(() => {
     const q = transcript?.trim()
     if (q && !isListening && !isProcessing) {
-      resetTranscript()
+      setQuestionText(q)
       clearSpeechError()
+      resetTranscript()
       handleApiCall(q)
     }
   }, [transcript, isListening, isProcessing, resetTranscript, clearSpeechError, handleApiCall])
@@ -485,7 +494,7 @@ export default function AvatarChat() {
                 </div>
               )}
               {codeContent && (
-                <div className="animate-fadeIn"><CodeBox code={codeContent} /></div>
+                <div className="animate-fadeIn"><CodeBox code={codeContent} language={codeLanguage} /></div>
               )}
               {relatedArticles.length > 0 && (
                 <div className="animate-fadeIn"><ArticleCarousel articles={relatedArticles} /></div>

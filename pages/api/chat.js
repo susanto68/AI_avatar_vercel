@@ -23,7 +23,7 @@ const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-1.5-flash,gemini-1.5-
   .filter(Boolean)
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
-const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant,llama-3.3-70b-versatile')
+const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile,deepseek-r1-distill-llama-70b')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
@@ -200,7 +200,7 @@ ${history.map((msg) => `${msg.role}: ${msg.content}`).join('\n') || 'No previous
 
 User Question: ${prompt}
 
-Answer quickly in 2-4 short bullet points or short paragraphs. Use simple words. Include one tiny code example only when necessary. Do not add long introductions or long resource lists.`
+Answer in the same warm teacher style as the system prompt. Use simple words, keep the answer complete, and include code in triple backticks only when the student asks for programming help.`
 
   const errors = []
 
@@ -417,30 +417,10 @@ export default async function handler(req, res) {
     let apiUsed = 'none'
     let apiError = null
 
-    // Try APIs: Groq first (fastest), then Gemini, then OpenAI as fallback
-    // Try Groq first if available (llama-3.1-8b-instant — very fast)
-    if (hasGroqKey && !aiResponse) {
-      try {
-        console.log('🤖 Trying Groq API (llama-3.1-8b-instant)...')
-        const groqResponse = await Promise.race([
-          callGroq(prompt, avatarType, sessionId),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS)
-          )
-        ])
-        aiResponse = groqResponse.text
-        apiUsed = `groq:${groqResponse.modelName}`
-        console.log('✅ Groq API success')
-      } catch (error) {
-        console.warn('⚠️ Groq API failed:', error.message)
-        apiError = error.message
-      }
-    }
-
-    // Fallback to Gemini if Groq failed or not available
+    // Try APIs in requested order: Gemini, Groq model fallbacks, then OpenAI.
     if (hasGeminiKey && !aiResponse) {
       try {
-        console.log('🤖 Trying Gemini API...')
+        console.log('Trying Gemini API...')
         const geminiResponse = await Promise.race([
           callGemini(prompt, avatarType, sessionId),
           new Promise((_, reject) =>
@@ -449,14 +429,32 @@ export default async function handler(req, res) {
         ])
         aiResponse = geminiResponse.text
         apiUsed = `gemini:${geminiResponse.modelName}`
-        console.log('✅ Gemini API success')
+        console.log('Gemini API success')
       } catch (error) {
-        console.warn('⚠️ Gemini API failed:', error.message)
+        console.warn('Gemini API failed:', error.message)
         apiError = error.message
       }
     }
 
-    // Fallback to ChatGPT if Groq and Gemini failed or are not available
+    // Fallback to Groq models if Gemini failed or is not available.
+    if (hasGroqKey && !aiResponse) {
+      try {
+        console.log('Trying Groq API fallback...')
+        const groqResponse = await Promise.race([
+          callGroq(prompt, avatarType, sessionId),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS)
+          )
+        ])
+        aiResponse = groqResponse.text
+        apiUsed = `groq:${groqResponse.modelName}`
+        console.log('Groq API success')
+      } catch (error) {
+        console.warn('Groq API failed:', error.message)
+        apiError = error.message
+      }
+    }
+    // Fallback to ChatGPT if Gemini and Groq failed or are not available.
     if (!aiResponse && hasOpenAIKey) {
       try {
         console.log('🤖 Trying ChatGPT API as fallback...')
@@ -521,13 +519,22 @@ export default async function handler(req, res) {
       relatedVideos = parseRelatedContent(videosText, 'video', avatarType)
     }
 
+    let language = ''
+
     // If no explicit parts found, try to extract code blocks for part2
     if (!part2) {
-      const codeBlockMatch = aiResponse.match(/```(\w+)?\n([\s\S]*?)```/g)
+      const codeBlockMatch = aiResponse.match(/```(\w+)?\n([\s\S]*?)```/)
       if (codeBlockMatch) {
-        part2 = codeBlockMatch.join('\n\n')
+        language = codeBlockMatch[1] || 'code'
+        part2 = codeBlockMatch[2].trim()
         // Remove code blocks from part1
         part1 = aiResponse.replace(/```(\w+)?\n([\s\S]*?)```/g, '').trim()
+      }
+    } else {
+      const explicitCodeMatch = part2.match(/```(\w+)?\n([\s\S]*?)```/)
+      if (explicitCodeMatch) {
+        language = explicitCodeMatch[1] || 'code'
+        part2 = explicitCodeMatch[2].trim()
       }
     }
 
@@ -567,6 +574,9 @@ export default async function handler(req, res) {
       relatedArticles,
       relatedVideos,
       success: true,
+      answer: part1,
+      code: part2,
+      language,
       apiUsed,
       apiError: apiError || null
     })

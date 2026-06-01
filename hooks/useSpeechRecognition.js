@@ -111,7 +111,7 @@ export const useSpeechRecognition = () => {
   const checkPermission = useCallback(async () => {
     if (!navigator.permissions) {
       setPermissionStatus('unknown')
-      return
+      return 'unknown'
     }
 
     try {
@@ -121,9 +121,11 @@ export const useSpeechRecognition = () => {
       permission.onchange = () => {
         setPermissionStatus(permission.state)
       }
+      return permission.state
     } catch (error) {
       console.error('Error checking microphone permission:', error)
       setPermissionStatus('unknown')
+      return 'unknown'
     }
   }, [])
 
@@ -154,10 +156,10 @@ export const useSpeechRecognition = () => {
       return false
     }
 
-    // Check and request permission if needed
-    await checkPermission()
+    // Check and request permission if the browser reports a hard denial.
+    const currentPermission = await checkPermission()
     
-    if (permissionStatus === 'denied') {
+    if (currentPermission === 'denied' || permissionStatus === 'denied') {
       const granted = await requestPermission()
       if (!granted) {
         return false

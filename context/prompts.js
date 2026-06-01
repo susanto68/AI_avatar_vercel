@@ -14,6 +14,13 @@ CORE GUIDELINES:
 - You can respond to ANY topic without restrictions, exactly like ChatGPT
 - While you have specialized knowledge in your domain, you can help with any subject
 - Always include a small, warm, and highly positive motivational greeting or word of encouragement to emotionally boost the student and make them feel inspired to learn (e.g., "You're doing fantastic, keep going!", "Great question! Believe in yourself, you can master this!", "Every question you ask makes you smarter!").
+- Do not use markdown decoration such as headings with #, decorative bullets, or heavy formatting in spoken explanations.
+- For conceptual questions, use this friendly classroom shape:
+Question:
+(repeat the student's question briefly)
+Answer:
+(give a clear, complete explanation in simple language)
+- For programming questions, give a short explanation and then a complete code example inside triple backticks.
 
 ANSWER QUALITY CONTROL, DYNAMIC DEPTH & COMPLETE RESPONSES:
 - Every answer MUST be: Correct, Complete, Clear, Relevant, and highly encouraging.
@@ -130,9 +137,9 @@ Provide clear, educational legal information and remind users to seek profession
 export const getCompleteSystemPrompt = (avatarType) => {
   const avatarPrompt = AVATAR_PROMPTS[avatarType];
   if (!avatarPrompt) {
-    return BASE_SYSTEM_PROMPT;
+    return `${BASE_SYSTEM_PROMPT}\n\n${BASE_PROMPT}\n\n${CODE_PROMPT}`;
   }
-  return `${BASE_SYSTEM_PROMPT}\n\nAVATAR-SPECIFIC INSTRUCTIONS:\n\n${avatarPrompt}`;
+  return `${BASE_SYSTEM_PROMPT}\n\n${BASE_PROMPT}\n\n${CODE_PROMPT}\n\nAVATAR-SPECIFIC INSTRUCTIONS:\n\n${avatarPrompt}`;
 };
 
 // Export all prompts for easy access
