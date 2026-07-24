@@ -40,7 +40,7 @@ export default function Home() {
       // Use the imported speakText function with proper callback
       speakText(welcomeMessage, () => {
         console.log('✅ Welcome message completed successfully')
-      })
+      }, { suppressBlockedError: true })
       
       console.log('🎤 Welcome message started')
     } catch (error) {
