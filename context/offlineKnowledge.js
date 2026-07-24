@@ -488,8 +488,60 @@ Key areas in English include:
   }
 }
 
+const generateProgrammingFallback = (prompt) => {
+  const promptLower = prompt.toLowerCase()
+
+  if (promptLower.includes('magic number') && promptLower.includes('java')) {
+    return `You asked for a Java program to check whether a number is a magic number.
+
+A magic number is usually checked by repeatedly adding the digits until a single digit remains. If the final single digit is 1, it is a magic number.
+
+\`\`\`java
+import java.util.Scanner;
+
+public class MagicNumber {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter a number: ");
+        int num = sc.nextInt();
+        int temp = num;
+
+        while (temp > 9) {
+            int sum = 0;
+            while (temp > 0) {
+                sum += temp % 10;
+                temp /= 10;
+            }
+            temp = sum;
+        }
+
+        if (temp == 1) {
+            System.out.println(num + " is a magic number.");
+        } else {
+            System.out.println(num + " is not a magic number.");
+        }
+
+        sc.close();
+    }
+}
+\`\`\`
+
+Example: 1729 -> 1 + 7 + 2 + 9 = 19, then 1 + 9 = 10, then 1 + 0 = 1, so 1729 is a magic number.`
+  }
+
+  if (/(write|create|make).*(program|code)|program.*(java|python|javascript|c\+\+)/.test(promptLower)) {
+    return `You asked for a programming solution. I could not reach the live AI service at this moment, so please try again once more. I should answer with the exact requested program, not a general computer science explanation.`
+  }
+
+  return ''
+}
+
 // Enhanced intelligent fallback that searches the offline knowledge base
 export const generateIntelligentFallback = (avatarType, prompt) => {
+  const programmingFallback = generateProgrammingFallback(prompt)
+  if (programmingFallback) return programmingFallback
+
   // First, try to find a specific match in the offline knowledge base
   const avatarKnowledge = OFFLINE_KNOWLEDGE_BASE[avatarType]
   if (avatarKnowledge) {
