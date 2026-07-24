@@ -17,19 +17,23 @@ const groq = new OpenAI({
 })
 
 // Valid Gemini model names (updated May 2026)
-const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-1.5-flash,gemini-1.5-pro,gemini-pro')
+const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-2.0-flash,gemini-1.5-flash,gemini-1.5-pro')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
-const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile,deepseek-r1-distill-llama-70b')
+const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant,llama-3.3-70b-versatile,deepseek-r1-distill-llama-70b')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
-const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 500)
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 10000)
+const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1024)
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
 const AI_HISTORY_LIMIT = Number(process.env.AI_HISTORY_LIMIT || 2)
+const AI_PROVIDER_ORDER = (process.env.AI_PROVIDER_ORDER || 'groq,gemini,openai')
+  .split(',')
+  .map((provider) => provider.trim().toLowerCase())
+  .filter(Boolean)
 
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
@@ -301,7 +305,9 @@ export default async function handler(req, res) {
     const parsedBody = parseBody(req)
     console.log('Parsed Body:', parsedBody)
     
-    const { prompt, avatarType, sessionId = 'default' } = parsedBody || {}
+    const rawPrompt = parsedBody?.prompt ?? parsedBody?.question ?? parsedBody?.message ?? ''
+    const { avatarType, sessionId = 'default' } = parsedBody || {}
+    const prompt = typeof rawPrompt === 'string' ? rawPrompt : rawPrompt?.toString?.() || ''
 
     // Enhanced validation with detailed error messages
     if (!parsedBody) {
@@ -315,20 +321,10 @@ export default async function handler(req, res) {
     }
 
     if (!prompt) {
-      console.log('❌ Missing prompt field')
+      console.log('❌ Missing prompt/question/message field')
       return res.status(400).json({ 
-        error: 'Missing prompt field. Please provide a prompt in the request body.',
+        error: 'Missing question. Please provide prompt, question, or message in the request body.',
         received: { prompt, avatarType, sessionId },
-        rawBody: req.body,
-        parsedBody: parsedBody
-      })
-    }
-
-    if (typeof prompt !== 'string') {
-      console.log('❌ Invalid prompt type:', typeof prompt)
-      return res.status(400).json({ 
-        error: 'Invalid prompt type. Prompt must be a string.',
-        received: { prompt: typeof prompt, avatarType, sessionId },
         rawBody: req.body,
         parsedBody: parsedBody
       })
@@ -375,6 +371,8 @@ export default async function handler(req, res) {
       })
     }
 
+    const cleanPrompt = prompt.trim()
+
     // Check for API keys
     const hasGeminiKey = !!process.env.GEMINI_API_KEY
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY
@@ -384,9 +382,9 @@ export default async function handler(req, res) {
       console.error('No API keys found. Please set GEMINI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY environment variables')
       
       // Generate intelligent fallback response
-      const fallbackResponse = generateIntelligentFallback(avatarType, prompt)
-      const relatedArticles = generateFallbackArticles(avatarType, prompt, fallbackResponse)
-      const relatedVideos = generateFallbackVideos(avatarType, prompt, fallbackResponse)
+      const fallbackResponse = generateIntelligentFallback(avatarType, cleanPrompt)
+      const relatedArticles = generateFallbackArticles(avatarType, cleanPrompt, fallbackResponse)
+      const relatedVideos = generateFallbackVideos(avatarType, cleanPrompt, fallbackResponse)
       
       return res.status(200).json({
         part1: `I apologize, but I'm currently unable to access my AI capabilities. ${fallbackResponse}`,
@@ -407,75 +405,49 @@ export default async function handler(req, res) {
       openai: hasOpenAIKey 
     })
 
-    // Get conversation history for context (limited for faster responses)
     const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
-    
-    // Add user message to history
-    addToConversationHistory(avatarType, sessionId, 'user', prompt)
 
     let aiResponse = ''
     let apiUsed = 'none'
     let apiError = null
 
-    // Try APIs in requested order: Gemini, Groq model fallbacks, then OpenAI.
-    if (hasGeminiKey && !aiResponse) {
-      try {
-        console.log('Trying Gemini API...')
-        const geminiResponse = await Promise.race([
-          callGemini(prompt, avatarType, sessionId),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Gemini API timeout')), AI_TIMEOUT_MS)
-          )
-        ])
-        aiResponse = geminiResponse.text
-        apiUsed = `gemini:${geminiResponse.modelName}`
-        console.log('Gemini API success')
-      } catch (error) {
-        console.warn('Gemini API failed:', error.message)
-        apiError = error.message
-      }
-    }
+    for (const provider of AI_PROVIDER_ORDER) {
+      if (aiResponse) break
 
-    // Fallback to Groq models if Gemini failed or is not available.
-    if (hasGroqKey && !aiResponse) {
       try {
-        console.log('Trying Groq API fallback...')
-        const groqResponse = await Promise.race([
-          callGroq(prompt, avatarType, sessionId),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS)
-          )
-        ])
-        aiResponse = groqResponse.text
-        apiUsed = `groq:${groqResponse.modelName}`
-        console.log('Groq API success')
+        if (provider === 'groq' && hasGroqKey) {
+          console.log('Trying Groq API...')
+          const groqResponse = await Promise.race([
+            callGroq(cleanPrompt, avatarType, sessionId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS))
+          ])
+          aiResponse = groqResponse.text
+          apiUsed = 'groq:' + groqResponse.modelName
+        } else if (provider === 'gemini' && hasGeminiKey) {
+          console.log('Trying Gemini API...')
+          const geminiResponse = await Promise.race([
+            callGemini(cleanPrompt, avatarType, sessionId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API timeout')), AI_TIMEOUT_MS))
+          ])
+          aiResponse = geminiResponse.text
+          apiUsed = 'gemini:' + geminiResponse.modelName
+        } else if ((provider === 'openai' || provider === 'chatgpt') && hasOpenAIKey) {
+          console.log('Trying ChatGPT API...')
+          aiResponse = await Promise.race([
+            callChatGPT(cleanPrompt, avatarType, sessionId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('ChatGPT API timeout')), AI_TIMEOUT_MS))
+          ])
+          apiUsed = 'chatgpt'
+        }
       } catch (error) {
-        console.warn('Groq API failed:', error.message)
+        console.warn(provider + ' API failed:', error.message)
         apiError = error.message
       }
     }
-    // Fallback to ChatGPT if Gemini and Groq failed or are not available.
-    if (!aiResponse && hasOpenAIKey) {
-      try {
-        console.log('🤖 Trying ChatGPT API as fallback...')
-        aiResponse = await Promise.race([
-          callChatGPT(prompt, avatarType, sessionId),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('ChatGPT API timeout')), AI_TIMEOUT_MS)
-          )
-        ])
-        apiUsed = 'chatgpt'
-        console.log('✅ ChatGPT API success')
-      } catch (error) {
-        console.warn('⚠️ ChatGPT API failed:', error.message)
-        apiError = error.message
-      }
-    }
-
     // If all APIs failed, use intelligent fallback
     if (!aiResponse) {
       console.log('All APIs failed, using intelligent fallback')
-      aiResponse = generateIntelligentFallback(avatarType, prompt)
+      aiResponse = generateIntelligentFallback(avatarType, cleanPrompt)
       apiUsed = 'fallback'
     }
 
@@ -484,7 +456,7 @@ export default async function handler(req, res) {
       throw new Error('No response received from any AI service')
     }
 
-    // Add AI response to history
+    addToConversationHistory(avatarType, sessionId, 'user', cleanPrompt)
     addToConversationHistory(avatarType, sessionId, 'assistant', aiResponse)
 
     // Parse the response into part1, part2, and related content
@@ -549,10 +521,10 @@ export default async function handler(req, res) {
 
     // If no related content was extracted, generate fallback suggestions
     if (relatedArticles.length === 0) {
-      relatedArticles = generateFallbackArticles(avatarType, prompt, part1)
+      relatedArticles = generateFallbackArticles(avatarType, cleanPrompt, part1)
     }
     if (relatedVideos.length === 0) {
-      relatedVideos = generateFallbackVideos(avatarType, prompt, part1)
+      relatedVideos = generateFallbackVideos(avatarType, cleanPrompt, part1)
     }
 
     console.log('API Response generated successfully:', {
@@ -591,7 +563,9 @@ export default async function handler(req, res) {
     
     // Parse request body for fallback
     const parsedBody = parseBody(req)
-    const { avatarType, sessionId, prompt } = parsedBody || {}
+    const rawPrompt = parsedBody?.prompt ?? parsedBody?.question ?? parsedBody?.message ?? ''
+    const { avatarType, sessionId } = parsedBody || {}
+    const cleanPrompt = typeof rawPrompt === 'string' ? rawPrompt.trim() : rawPrompt?.toString?.().trim?.() || ''
     const avatarConfig = avatarType ? AVATAR_CONFIG[avatarType] : null
     
     let fallbackResponse = ''
@@ -631,12 +605,12 @@ In the meantime, you can explore the suggested resources below to continue learn
     } else {
       // Generic error - use intelligent fallback
       errorType = 'Service temporarily unavailable'
-      fallbackResponse = generateIntelligentFallback(avatarType, prompt)
+      fallbackResponse = generateIntelligentFallback(avatarType, cleanPrompt)
     }
     
     // Generate fallback content for the specific avatar type
-    const relatedArticles = generateFallbackArticles(avatarType, prompt, fallbackResponse)
-    const relatedVideos = generateFallbackVideos(avatarType, prompt, fallbackResponse)
+    const relatedArticles = generateFallbackArticles(avatarType, cleanPrompt, fallbackResponse)
+    const relatedVideos = generateFallbackVideos(avatarType, cleanPrompt, fallbackResponse)
     
     return res.status(200).json({
       part1: fallbackResponse,

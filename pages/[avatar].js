@@ -205,7 +205,7 @@ export default function AvatarChat() {
     resetTranscript()
     clearSpeechError()
     setShowError(false)
-    try { await startListening() }
+    try { await startListening({ lang: avatar === 'hindi-teacher' ? 'hi-IN' : 'en-IN' }) }
     catch (e) { console.error('Mic error:', e); setShowError(true) }
   }
 
@@ -290,13 +290,13 @@ export default function AvatarChat() {
   // ── Auto-submit voice transcript ───────────────────────────────────────────
   useEffect(() => {
     const q = transcript?.trim()
-    if (q && !isListening && !isProcessing) {
+    if (q && !isProcessing) {
       setQuestionText(q)
       clearSpeechError()
       resetTranscript()
       handleApiCall(q)
     }
-  }, [transcript, isListening, isProcessing, resetTranscript, clearSpeechError, handleApiCall])
+  }, [transcript, isProcessing, resetTranscript, clearSpeechError, handleApiCall])
 
   // ── Speech recognition errors ──────────────────────────────────────────────
   useEffect(() => {

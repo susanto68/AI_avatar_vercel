@@ -145,7 +145,7 @@ export const useSpeechRecognition = () => {
     }
   }, [])
 
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(async (options = {}) => {
     if (!isSupported || !recognitionRef.current) {
       setError('Speech recognition is not supported in this browser.')
       return false
@@ -167,6 +167,7 @@ export const useSpeechRecognition = () => {
     }
 
     try {
+      recognitionRef.current.lang = options.lang || recognitionRef.current.lang || 'en-IN'
       recognitionRef.current.start()
       return true
     } catch (error) {
