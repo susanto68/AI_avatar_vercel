@@ -83,7 +83,6 @@ export default function TextInputBox({
     const textToSubmit = text || displayText.trim()
     if (textToSubmit && !isProcessing) {
       onSubmit(textToSubmit)
-      updateInputText('')
       resetTranscript()
     }
   }

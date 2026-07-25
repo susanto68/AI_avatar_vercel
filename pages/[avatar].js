@@ -17,6 +17,8 @@ import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 
+const AVATAR_VOICE_HANDOFF_KEY = 'sirgangulyAvatarVoiceHandoff'
+
 export default function AvatarChat() {
   const router = useRouter()
   const { avatar } = router.query
@@ -60,6 +62,13 @@ export default function AvatarChat() {
   const allTimeoutsRef = useRef([])
   const avatarConfig = AVATAR_CONFIG[avatar] || null
 
+  const buildReadableAnswerText = useCallback((question, answer) => {
+    const cleanQuestion = String(question || '').trim()
+    const cleanAnswer = String(answer || '').trim()
+    if (!cleanQuestion) return cleanAnswer
+    return `You have asked:\n${cleanQuestion}\n\n${cleanAnswer}`
+  }, [])
+
   const addTimeout = useCallback((fn, delay) => {
     const id = setTimeout(fn, delay)
     allTimeoutsRef.current.push(id)
@@ -85,6 +94,19 @@ export default function AvatarChat() {
   useEffect(() => {
     if (typeof window !== 'undefined') initSynth()
   }, [])
+
+  useEffect(() => {
+    if (!avatar || typeof window === 'undefined') return
+
+    try {
+      const handoffAvatar = sessionStorage.getItem(AVATAR_VOICE_HANDOFF_KEY)
+      if (handoffAvatar === avatar) {
+        sessionStorage.removeItem(AVATAR_VOICE_HANDOFF_KEY)
+        unlockAudio()
+        setUserInteracted(true)
+      }
+    } catch (_) {}
+  }, [avatar])
 
   // ── Unlock audio + mark interaction on FIRST user click/tap ───────────────
   // We play the greeting synchronously inside the first user gesture click/tap
@@ -182,7 +204,7 @@ export default function AvatarChat() {
     stopSpeaking()
     setIsSpeaking(true)
     setIsPaused(false)
-    speakText(currentText, () => {
+    speakText(buildReadableAnswerText(lastQuestion, currentText), () => {
       setIsSpeaking(false)
       setIsPaused(false)
     }, { avatarType: avatar })
@@ -214,7 +236,7 @@ export default function AvatarChat() {
     if (!prompt?.trim() || !avatarConfig) return
     const cleanPrompt = prompt.trim()
     setLastQuestion(cleanPrompt)
-    setQuestionText('')
+    setQuestionText(cleanPrompt)
     setApiProcessing(true)
     setApiError(null)
     setShowError(false)
@@ -230,7 +252,13 @@ export default function AvatarChat() {
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: cleanPrompt, avatarType: avatar, sessionId }),
+          body: JSON.stringify({
+            question: cleanPrompt,
+            prompt: cleanPrompt,
+            message: cleanPrompt,
+            avatarType: avatar,
+            sessionId
+          }),
           signal: AbortSignal.timeout(30000)
         })
 
@@ -240,9 +268,11 @@ export default function AvatarChat() {
           return attemptFetch(retry + 1)
         }
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
         const data = await res.json()
+        if (!res.ok || data.success === false || data.fallback) {
+          throw new Error(data.error || `HTTP ${res.status}`)
+        }
+
         const responseText = data.part1 || data.reply || 'No response. Please try again.'
 
         setCurrentText(responseText)
@@ -256,7 +286,7 @@ export default function AvatarChat() {
         // so the audio context is already unlocked.
         setIsSpeaking(true)
         setIsPaused(false)
-        speakText(responseText, () => {
+        speakText(buildReadableAnswerText(cleanPrompt, responseText), () => {
           setIsSpeaking(false)
           setIsPaused(false)
         }, { avatarType: avatar })
@@ -278,7 +308,7 @@ export default function AvatarChat() {
 
     try { await attemptFetch() }
     finally { setApiProcessing(false) }
-  }, [avatar, avatarConfig, sessionId])
+  }, [avatar, avatarConfig, sessionId, buildReadableAnswerText])
 
   // ── Text submit ────────────────────────────────────────────────────────────
   const handleTextSubmit = useCallback((text) => {
@@ -348,7 +378,7 @@ export default function AvatarChat() {
           )}
 
           {/* Audio nudge — before first interaction */}
-          {!userInteracted && (
+          {false && !userInteracted && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-400 text-gray-900 text-sm font-bold px-5 py-2.5 rounded-full shadow-2xl animate-bounce cursor-pointer"
               onClick={handleFirstInteraction}>
               👆 Tap here to enable voice &amp; audio
@@ -358,15 +388,17 @@ export default function AvatarChat() {
           <div className="container mx-auto px-3 pb-20 flex flex-col min-h-screen">
             
             {/* Unified Navigation Header Bar */}
-            <div className="flex items-center justify-between py-4 border-b border-white/10 mb-4">
+            <div className="flex items-center justify-between gap-2 py-4 pl-[128px] sm:pl-[150px] border-b border-white/10 mb-4">
               <button 
                 onClick={handleBack}
+                aria-label="Back to home"
+                title="Back to home"
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-white/95 text-gray-900 hover:bg-white text-xs sm:text-sm font-extrabold rounded-xl transition-all shadow-md active:scale-95 hover:scale-105 border border-purple-200"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-purple-600">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                HOME
+                Back to home
               </button>
               
               <div className="text-right text-white">

@@ -17,7 +17,7 @@ export default function TextDisplay({ text, isProcessing, avatarConfig, isListen
 
   let contentToRender = displayText
   if (lastQuestion && lastQuestion.trim() && !isInterim) {
-    contentToRender = `**Question:**\n${lastQuestion.trim()}\n\n**Answer:**\n${displayText}`
+    contentToRender = `**You have asked:**\n${lastQuestion.trim()}\n\n${displayText}`
   }
 
   // Ensure client-side rendering to prevent hydration errors

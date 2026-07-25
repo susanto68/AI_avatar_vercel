@@ -1,43 +1,48 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
 import { getCompleteSystemPrompt } from '../../context/prompts.js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import OpenAI from 'openai'
 
-import { generateIntelligentFallback } from '../../context/offlineKnowledge.js'
 import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
 
-// Initialize AI clients
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY || 'missing-groq-api-key',
-  baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
-})
-
-// Valid Gemini model names (updated May 2026)
-const GEMINI_MODELS = (process.env.GEMINI_MODEL || 'gemini-2.0-flash,gemini-1.5-flash,gemini-1.5-pro')
-  .split(',')
-  .map((model) => model.trim())
-  .filter(Boolean)
-
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
-const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant,llama-3.3-70b-versatile,deepseek-r1-distill-llama-70b')
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'
+const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
 const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1024)
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
-const AI_HISTORY_LIMIT = Number(process.env.AI_HISTORY_LIMIT || 2)
-const AI_PROVIDER_ORDER = (process.env.AI_PROVIDER_ORDER || 'groq,gemini,openai')
-  .split(',')
-  .map((provider) => provider.trim().toLowerCase())
-  .filter(Boolean)
+
+const COMPUTER_TEACHER_GANGULYS_PROMPT = `You are an AI Avatar as Computer Teacher, created by Sir Ganguly, a kind and supportive Computer Teacher, to help learners improve their Computer subject, especially for the ICSE curriculum.
+You speak in simple, friendly English.
+Always introduce yourself as "I am AI Avatar as Computer Teacher, created by Sir Ganguly."
+Always use a calm, warm, and encouraging tone like a teacher who wants every student to feel confident and happy to learn.
+Do not use markdown symbols like #, *, or special formatting.
+The only exception is for programming code, which must be enclosed in triple backticks like this:
+\`\`\`java
+System.out.println("Hello, world!");
+\`\`\`
+
+When a student asks a conceptual question (like server, IP address, networking, hardware, or software):
+Use this format:
+Question:
+(Repeat the student's question)
+Answer:
+(Give a short, clear explanation in friendly and simple language)
+
+When a student asks a programming question (Java, Python, etc.):
+Use this format:
+Question:
+(Repeat the student's question)
+Answer:
+(Give a short, clear explanation, then show the code)
+Code Example:
+(Enclose the code inside triple backticks)
+
+Keep all code short, clear, and easy to understand, especially for ICSE students and slow learners.
+Avoid harsh, negative, or confusing words.
+Always end your answers with a kind, uplifting line, such as: "You're doing a great job - keep practicing and stay curious!"`
 
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
-const sessionContexts = new Map()
 
 // Performance optimization: Cache system prompts
 const systemPromptCache = new Map()
@@ -102,80 +107,51 @@ const addToConversationHistory = (avatarType, sessionId, role, content) => {
   conversationHistory.set(key, history)
 }
 
-// Get or create session context for Gemini with performance optimization
-const getSessionContext = (avatarType, sessionId) => {
-  const key = `${avatarType}-${sessionId}`
-  if (!sessionContexts.has(key)) {
-    sessionContexts.set(key, genAI.getGenerativeModel({ model: GEMINI_MODELS[0] }).startChat({
-      history: [],
-      generationConfig: {
-        maxOutputTokens: 2048, // Reduced from 4096 for faster responses
-        temperature: 0.7,
-        topP: 0.8,
-        topK: 40,
-      },
-    }))
+const getGroqSystemPrompt = (avatarType) => {
+  if (avatarType === 'computer-teacher') {
+    return COMPUTER_TEACHER_GANGULYS_PROMPT
   }
-  return sessionContexts.get(key)
-}
 
-// Call ChatGPT API
-const callChatGPT = async (prompt, avatarType, sessionId) => {
-  const systemPrompt = getCachedSystemPrompt(avatarType)
-  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
-  
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history.map(msg => ({ role: msg.role, content: msg.content })),
-    { role: 'user', content: prompt }
-  ]
-
-  console.log(`[AI REQUEST] Type: ChatGPT | Avatar: ${avatarType} | Session: ${sessionId}`)
-  console.log(`[AI REQUEST] Prompt: "${prompt}"`)
-  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: messages,
-      max_tokens: AI_MAX_OUTPUT_TOKENS,
-      temperature: 0.7,
-    })
-
-    const text = response.choices[0].message.content
-    console.log(`[AI RESPONSE] Type: ChatGPT Success | Model: ${OPENAI_MODEL} | Output: "${text.substring(0, 100)}..."`)
-    return text
-  } catch (error) {
-    console.error(`[API ERROR] ChatGPT failed:`, error.message)
-    throw error
-  }
+  return getCachedSystemPrompt(avatarType)
 }
 
 // Call Groq OpenAI-compatible API with ordered model fallbacks
 const callGroq = async (prompt, avatarType, sessionId) => {
-  const systemPrompt = getCachedSystemPrompt(avatarType)
-  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
+  const systemPrompt = getGroqSystemPrompt(avatarType)
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...history.map(msg => ({ role: msg.role, content: msg.content })),
     { role: 'user', content: prompt }
   ]
   const errors = []
 
   console.log(`[AI REQUEST] Type: Groq | Avatar: ${avatarType} | Session: ${sessionId}`)
   console.log(`[AI REQUEST] Prompt: "${prompt}"`)
-  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
+  console.log('[AI REQUEST] Payload style: Gangulys Notes direct system+user')
 
   for (const modelName of GROQ_MODELS) {
     try {
       console.log(`[AI REQUEST] Attempting Groq model: ${modelName}`)
-      const response = await groq.chat.completions.create({
-        model: modelName,
-        messages,
-        max_tokens: AI_MAX_OUTPUT_TOKENS,
-        temperature: 0.7,
+      const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages,
+          max_tokens: AI_MAX_OUTPUT_TOKENS,
+          temperature: 0.7,
+        })
       })
-      const text = response.choices?.[0]?.message?.content?.trim()
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(`Groq API error ${response.status}: ${errorText || response.statusText}`)
+      }
+
+      const data = await response.json()
+      const text = data.choices?.[0]?.message?.content?.trim()
 
       if (text) {
         console.log(`[AI RESPONSE] Type: Groq Success | Model: ${modelName} | Output: "${text.substring(0, 100)}..."`)
@@ -192,57 +168,6 @@ const callGroq = async (prompt, avatarType, sessionId) => {
   throw new Error(errors.join(' | '))
 }
 
-// Call Gemini API
-const callGemini = async (prompt, avatarType, sessionId) => {
-  const systemPrompt = getCachedSystemPrompt(avatarType)
-  const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
-  
-  const fullPrompt = `${systemPrompt}
-
-Recent Conversation:
-${history.map((msg) => `${msg.role}: ${msg.content}`).join('\n') || 'No previous messages.'}
-
-User Question: ${prompt}
-
-Answer in the same warm teacher style as the system prompt. Use simple words, keep the answer complete, and include code in triple backticks only when the student asks for programming help.`
-
-  const errors = []
-
-  console.log(`[AI REQUEST] Type: Gemini | Avatar: ${avatarType} | Session: ${sessionId}`)
-  console.log(`[AI REQUEST] Prompt: "${prompt}"`)
-  console.log(`[AI REQUEST] History Length: ${history.length} messages`)
-
-  for (const modelName of GEMINI_MODELS) {
-    try {
-      console.log(`[AI REQUEST] Attempting Gemini model: ${modelName}`)
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
-          temperature: 0.45,
-          topP: 0.8,
-          topK: 40,
-        },
-      })
-
-      const result = await model.generateContent(fullPrompt)
-      const text = result.response.text().trim()
-
-      if (text) {
-        console.log(`[AI RESPONSE] Type: Gemini Success | Model: ${modelName} | Output: "${text.substring(0, 100)}..."`)
-        return { text, modelName }
-      }
-
-      errors.push(`${modelName}: empty response`)
-    } catch (error) {
-      console.error(`[API ERROR] Gemini model ${modelName} failed:`, error.message)
-      errors.push(`${modelName}: ${error.message}`)
-    }
-  }
-
-  throw new Error(errors.join(' | '))
-}
-
 // Clean up old sessions (older than 1 hour instead of 24 hours)
 const cleanupOldSessions = () => {
   const now = Date.now()
@@ -250,13 +175,12 @@ const cleanupOldSessions = () => {
   
   for (const [key, history] of conversationHistory.entries()) {
     if (history.length > 0) {
-      const lastMessage = history[history.length - 1]
-      if (now - lastMessage.timestamp > oneHour) {
-        conversationHistory.delete(key)
-        sessionContexts.delete(key)
+        const lastMessage = history[history.length - 1]
+        if (now - lastMessage.timestamp > oneHour) {
+          conversationHistory.delete(key)
+        }
       }
     }
-  }
 }
 
 // Get cached system prompt for better performance
@@ -268,49 +192,27 @@ const getCachedSystemPrompt = (avatarType) => {
   return systemPromptCache.get(avatarType)
 }
 
-const getDeterministicProgrammingAnswer = (prompt) => {
-  const promptLower = String(prompt || '').toLowerCase()
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-  if (promptLower.includes('java') && promptLower.includes('magic number')) {
-    return {
-      part1: `You asked for a Java program to input a number and check whether it is a magic number.
+const normalizeAnswerText = (answer, question) => {
+  let normalized = String(answer || '').trim()
+  const cleanQuestion = String(question || '').trim()
 
-A magic number is checked by repeatedly adding the digits until a single digit remains. If the final single digit is 1, the number is a magic number.
-
-Example: 1729 -> 1 + 7 + 2 + 9 = 19, then 1 + 9 = 10, then 1 + 0 = 1, so 1729 is a magic number.`,
-      part2: `import java.util.Scanner;
-
-public class MagicNumber {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-
-        System.out.print("Enter a number: ");
-        int num = sc.nextInt();
-        int temp = num;
-
-        while (temp > 9) {
-            int sum = 0;
-            while (temp > 0) {
-                sum += temp % 10;
-                temp /= 10;
-            }
-            temp = sum;
-        }
-
-        if (temp == 1) {
-            System.out.println(num + " is a magic number.");
-        } else {
-            System.out.println(num + " is not a magic number.");
-        }
-
-        sc.close();
-    }
-}`,
-      language: 'java'
-    }
+  if (cleanQuestion) {
+    const questionPattern = escapeRegExp(cleanQuestion).replace(/\s+/g, '\\s+')
+    const repeatedQuestionBlock = new RegExp(`\\s*Question:\\s*${questionPattern}\\s*Answer:\\s*`, 'gi')
+    normalized = normalized.replace(repeatedQuestionBlock, '\n').trim()
   }
 
-  return null
+  normalized = normalized
+    .replace(/^\s*Question:\s*/i, '')
+    .replace(/^\s*Answer:\s*/i, '')
+    .replace(/\n\s*Question:\s*[\s\S]*?\n\s*Answer:\s*/gi, '\n')
+    .replace(/\n\s*Code Example:\s*/gi, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return normalized
 }
 
 export default async function handler(req, res) {
@@ -329,7 +231,7 @@ export default async function handler(req, res) {
   console.log('Method:', req.method)
   console.log('URL:', req.url)
   console.log('Content-Type:', req.headers['content-type'])
-  console.log('Environment check - GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY)
+  console.log('Environment check - GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY)
   console.log('Vercel Environment:', process.env.VERCEL_ENV || 'local')
   console.log('========================')
 
@@ -418,82 +320,44 @@ export default async function handler(req, res) {
 
     const cleanPrompt = prompt.trim()
 
-    // Check for API keys
-    const hasGeminiKey = !!process.env.GEMINI_API_KEY
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY
+    // Match the working Gangulys Notes avatar: Groq is the answer provider.
     const hasGroqKey = !!process.env.GROQ_API_KEY
     
-    if (!hasGeminiKey && !hasOpenAIKey && !hasGroqKey) {
-      console.error('No API keys found. Please set GEMINI_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY environment variables')
-      
-      // Generate intelligent fallback response
-      const fallbackResponse = generateIntelligentFallback(avatarType, cleanPrompt)
-      const relatedArticles = generateFallbackArticles(avatarType, cleanPrompt, fallbackResponse)
-      const relatedVideos = generateFallbackVideos(avatarType, cleanPrompt, fallbackResponse)
-      
-      return res.status(200).json({
-        part1: `I apologize, but I'm currently unable to access my AI capabilities. ${fallbackResponse}`,
+    if (!hasGroqKey) {
+      console.error('GROQ_API_KEY is missing. Avatar answers require the same Groq API used by Gangulys Notes.')
+
+      return res.status(503).json({
+        part1: 'AI service is not configured. Please set GROQ_API_KEY and try again.',
         part2: '',
         avatarType,
         sessionId,
-        relatedArticles,
-        relatedVideos,
+        relatedArticles: [],
+        relatedVideos: [],
         success: false,
-        error: 'AI service configuration error - API keys missing',
-        fallback: true
+        error: 'GROQ_API_KEY missing',
+        fallback: false
       })
     }
 
     console.log('🔑 Available APIs:', { 
-      gemini: hasGeminiKey, 
       groq: hasGroqKey,
-      openai: hasOpenAIKey 
     })
-
-    const history = getConversationHistory(avatarType, sessionId).slice(-AI_HISTORY_LIMIT)
 
     let aiResponse = ''
     let apiUsed = 'none'
     let apiError = null
 
-    for (const provider of AI_PROVIDER_ORDER) {
-      if (aiResponse) break
-
-      try {
-        if (provider === 'groq' && hasGroqKey) {
-          console.log('Trying Groq API...')
-          const groqResponse = await Promise.race([
-            callGroq(cleanPrompt, avatarType, sessionId),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS))
-          ])
-          aiResponse = groqResponse.text
-          apiUsed = 'groq:' + groqResponse.modelName
-        } else if (provider === 'gemini' && hasGeminiKey) {
-          console.log('Trying Gemini API...')
-          const geminiResponse = await Promise.race([
-            callGemini(cleanPrompt, avatarType, sessionId),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini API timeout')), AI_TIMEOUT_MS))
-          ])
-          aiResponse = geminiResponse.text
-          apiUsed = 'gemini:' + geminiResponse.modelName
-        } else if ((provider === 'openai' || provider === 'chatgpt') && hasOpenAIKey) {
-          console.log('Trying ChatGPT API...')
-          aiResponse = await Promise.race([
-            callChatGPT(cleanPrompt, avatarType, sessionId),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('ChatGPT API timeout')), AI_TIMEOUT_MS))
-          ])
-          apiUsed = 'chatgpt'
-        }
-      } catch (error) {
-        console.warn(provider + ' API failed:', error.message)
-        apiError = error.message
-      }
-    }
-    // If all APIs failed, use intelligent fallback
-    if (!aiResponse) {
-      console.log('All APIs failed, using intelligent fallback')
-      aiResponse = generateIntelligentFallback(avatarType, cleanPrompt)
-      apiUsed = 'fallback'
+    try {
+      console.log('Trying Groq API...')
+      const groqResponse = await Promise.race([
+        callGroq(cleanPrompt, avatarType, sessionId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS))
+      ])
+      aiResponse = groqResponse.text
+      apiUsed = 'groq:' + groqResponse.modelName
+    } catch (error) {
+      apiError = error.message
+      throw error
     }
 
     if (!aiResponse) {
@@ -540,15 +404,15 @@ export default async function handler(req, res) {
 
     // If no explicit parts found, try to extract code blocks for part2
     if (!part2) {
-      const codeBlockMatch = aiResponse.match(/```(\w+)?\n([\s\S]*?)```/)
+      const codeBlockMatch = aiResponse.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
       if (codeBlockMatch) {
         language = codeBlockMatch[1] || 'code'
         part2 = codeBlockMatch[2].trim()
         // Remove code blocks from part1
-        part1 = aiResponse.replace(/```(\w+)?\n([\s\S]*?)```/g, '').trim()
+        part1 = aiResponse.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, '').trim()
       }
     } else {
-      const explicitCodeMatch = part2.match(/```(\w+)?\n([\s\S]*?)```/)
+      const explicitCodeMatch = part2.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
       if (explicitCodeMatch) {
         language = explicitCodeMatch[1] || 'code'
         part2 = explicitCodeMatch[2].trim()
@@ -564,12 +428,7 @@ export default async function handler(req, res) {
       part1 = aiResponse
     }
 
-    const deterministicProgrammingAnswer = getDeterministicProgrammingAnswer(cleanPrompt)
-    if (deterministicProgrammingAnswer) {
-      part1 = deterministicProgrammingAnswer.part1
-      part2 = deterministicProgrammingAnswer.part2
-      language = deterministicProgrammingAnswer.language
-    }
+    part1 = normalizeAnswerText(part1, cleanPrompt)
 
     // If no related content was extracted, generate fallback suggestions
     if (relatedArticles.length === 0) {
@@ -585,7 +444,7 @@ export default async function handler(req, res) {
       avatarType,
       sessionId,
       apiUsed,
-      historyLength: history.length + 2, // +2 for current user and AI messages
+      historyLength: getConversationHistory(avatarType, sessionId).length,
       articlesCount: relatedArticles.length,
       videosCount: relatedVideos.length
     })
@@ -603,7 +462,7 @@ export default async function handler(req, res) {
       language,
       apiUsed,
       apiError: apiError || null,
-      fallback: apiUsed === 'fallback'
+      fallback: false
     })
 
   } catch (error) {
@@ -614,67 +473,46 @@ export default async function handler(req, res) {
       name: error.name
     })
     
-    // Parse request body for fallback
+    // Parse request body for structured error context
     const parsedBody = parseBody(req)
     const rawPrompt = parsedBody?.prompt ?? parsedBody?.question ?? parsedBody?.message ?? ''
     const { avatarType, sessionId } = parsedBody || {}
     const cleanPrompt = typeof rawPrompt === 'string' ? rawPrompt.trim() : rawPrompt?.toString?.().trim?.() || ''
-    const avatarConfig = avatarType ? AVATAR_CONFIG[avatarType] : null
     
-    let fallbackResponse = ''
+    let statusCode = 502
     let errorType = 'Service temporarily unavailable'
+    let message = 'The AI service could not answer right now. Please try again.'
     
-    // Check for specific error types and provide better responses
     if (error.message && (error.message.includes('429') || error.message.includes('quota'))) {
-      // Quota exceeded - provide helpful information
+      statusCode = 429
       errorType = 'API quota exceeded'
       const quotaInfo = getQuotaStatus()
-      fallbackResponse = `I apologize, but I've reached my daily limit for AI responses. ${quotaInfo.message}
-
-${quotaInfo.details}
-${quotaInfo.resetTime}
-
-However, I can still help you with educational resources! Here are some relevant articles and videos to learn about your topic.
-
-${quotaInfo.alternatives[0]}
-${quotaInfo.alternatives[1]}
-${quotaInfo.alternatives[2]}`
+      message = `The Groq API quota was reached. ${quotaInfo.message}`
     } else if (error.message && (error.message.includes('timeout') || error.message.includes('TIMEOUT'))) {
-      // API timeout
+      statusCode = 504
       errorType = 'Request timeout'
-      fallbackResponse = `I apologize, but the request took too long to process. This might be due to high demand or network issues.
-
-Please try asking your question again in a moment, or explore the suggested resources below for immediate learning.`
+      message = 'The Groq API took too long to answer. Please try again.'
     } else if (error.message && (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND'))) {
-      // Network error
+      statusCode = 503
       errorType = 'Network error'
-      fallbackResponse = `I apologize, but there seems to be a network connection issue. Please check your internet connection and try again.
-
-In the meantime, you can explore the suggested resources below to continue learning.`
+      message = 'The server could not reach Groq. Please check the internet connection and try again.'
     } else if (error.message && error.message.includes('API key')) {
-      // API key error
+      statusCode = 503
       errorType = 'API configuration error'
-      fallbackResponse = `I apologize, but there's a configuration issue with my AI service. Please try again later or explore the suggested resources below.`
-    } else {
-      // Generic error - use intelligent fallback
-      errorType = 'Service temporarily unavailable'
-      fallbackResponse = generateIntelligentFallback(avatarType, cleanPrompt)
+      message = 'The Groq API key is not configured correctly.'
     }
     
-    // Generate fallback content for the specific avatar type
-    const relatedArticles = generateFallbackArticles(avatarType, cleanPrompt, fallbackResponse)
-    const relatedVideos = generateFallbackVideos(avatarType, cleanPrompt, fallbackResponse)
-    
-    return res.status(200).json({
-      part1: fallbackResponse,
+    return res.status(statusCode).json({
+      part1: message,
       part2: '',
       avatarType: avatarType || 'unknown',
       sessionId: sessionId || 'fallback',
-      relatedArticles,
-      relatedVideos,
+      relatedArticles: cleanPrompt ? generateFallbackArticles(avatarType, cleanPrompt, message) : [],
+      relatedVideos: cleanPrompt ? generateFallbackVideos(avatarType, cleanPrompt, message) : [],
       success: false,
       error: errorType,
-      fallback: true
+      apiError: error.message || null,
+      fallback: false
     })
   }
 } 

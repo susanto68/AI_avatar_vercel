@@ -11,6 +11,9 @@ import { WELCOME_MESSAGES, UI_TEXT } from '../context/constant.js'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 
+const HOME_WELCOME_KEY = 'sirgangulyAvatarHomeWelcomePlayed'
+const AVATAR_VOICE_HANDOFF_KEY = 'sirgangulyAvatarVoiceHandoff'
+
 export default function Home() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
@@ -24,6 +27,14 @@ export default function Home() {
 
   // Auto-greeting audio on load - only once per mount
   const playWelcomeGreeting = useCallback(() => {
+    const alreadyPlayed = typeof window !== 'undefined' && localStorage.getItem(HOME_WELCOME_KEY) === 'true'
+    if (alreadyPlayed) {
+      localStorage.setItem(HOME_WELCOME_KEY, 'true')
+      setHasPlayedWelcome(true)
+      hasTriggeredWelcomeRef.current = true
+      return
+    }
+
     // Prevent duplicate plays on double-mount or strict mode
     if (hasTriggeredWelcomeRef.current) {
       console.log('🛑 Welcome already triggered, skipping')
@@ -35,6 +46,7 @@ export default function Home() {
     console.log('🎤 Starting welcome message...')
 
     try {
+      localStorage.setItem(HOME_WELCOME_KEY, 'true')
       setHasPlayedWelcome(true)
       
       // Use the imported speakText function with proper callback
@@ -51,6 +63,10 @@ export default function Home() {
 
   // Handle avatar selection
   const handleAvatarSelect = (avatarType) => {
+    try {
+      unlockAudio()
+      sessionStorage.setItem(AVATAR_VOICE_HANDOFF_KEY, avatarType)
+    } catch (_) {}
     router.push(`/${avatarType}`)
   }
 
@@ -108,7 +124,9 @@ export default function Home() {
   useEffect(() => {
     const initApp = () => {
       console.log('🚀 Initializing app...')
-      setHasPlayedWelcome(false)
+      const alreadyPlayed = localStorage.getItem(HOME_WELCOME_KEY) === 'true'
+      setHasPlayedWelcome(alreadyPlayed)
+      hasTriggeredWelcomeRef.current = alreadyPlayed
 
       // Simulate loading time for smooth experience
       setTimeout(() => {
@@ -170,7 +188,7 @@ export default function Home() {
           <VisitorCounter />
 
           {/* Audio nudge — before first interaction */}
-          {!userInteracted && !hasPlayedWelcome && (
+          {false && !userInteracted && !hasPlayedWelcome && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-400 text-gray-900 text-sm font-bold px-5 py-2.5 rounded-full shadow-2xl animate-bounce cursor-pointer"
               onClick={handleFirstInteraction}>
               👆 Tap here to enable voice &amp; audio
