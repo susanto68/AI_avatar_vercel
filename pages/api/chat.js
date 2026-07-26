@@ -1,5 +1,6 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
 import { getCompleteSystemPrompt } from '../../context/prompts.js'
+import { generateIntelligentFallback } from '../../context/offlineKnowledge.js'
 
 import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
 
@@ -7,6 +8,15 @@ const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/
 const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant')
   .split(',')
   .map((model) => model.trim())
+  .filter(Boolean)
+const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+const DEEPSEEK_MODELS = (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+  .split(',')
+  .map((model) => model.trim())
+  .filter(Boolean)
+const AI_PROVIDER_ORDER = (process.env.AI_PROVIDER_ORDER || 'groq,deepseek')
+  .split(',')
+  .map((provider) => provider.trim().toLowerCase())
   .filter(Boolean)
 const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1024)
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
@@ -168,6 +178,57 @@ const callGroq = async (prompt, avatarType, sessionId) => {
   throw new Error(errors.join(' | '))
 }
 
+const callDeepSeek = async (prompt, avatarType, sessionId) => {
+  const systemPrompt = getGroqSystemPrompt(avatarType)
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: prompt }
+  ]
+  const errors = []
+
+  console.log(`[AI REQUEST] Type: DeepSeek | Avatar: ${avatarType} | Session: ${sessionId}`)
+  console.log('[AI REQUEST] Payload style: OpenAI-compatible system+user')
+
+  for (const modelName of DEEPSEEK_MODELS) {
+    try {
+      console.log(`[AI REQUEST] Attempting DeepSeek model: ${modelName}`)
+      const response = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages,
+          max_tokens: AI_MAX_OUTPUT_TOKENS,
+          temperature: 0.7,
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(`DeepSeek API error ${response.status}: ${errorText || response.statusText}`)
+      }
+
+      const data = await response.json()
+      const text = data.choices?.[0]?.message?.content?.trim()
+
+      if (text) {
+        console.log(`[AI RESPONSE] Type: DeepSeek Success | Model: ${modelName} | Output: "${text.substring(0, 100)}..."`)
+        return { text, modelName }
+      }
+
+      errors.push(`${modelName}: empty response`)
+    } catch (error) {
+      console.error(`[API ERROR] DeepSeek model ${modelName} failed:`, error.message)
+      errors.push(`${modelName}: ${error.message}`)
+    }
+  }
+
+  throw new Error(errors.join(' | '))
+}
+
 // Clean up old sessions (older than 1 hour instead of 24 hours)
 const cleanupOldSessions = () => {
   const now = Date.now()
@@ -205,14 +266,65 @@ const normalizeAnswerText = (answer, question) => {
   }
 
   normalized = normalized
+    .replace(/\n?\s*\(briefly repeat the student's question\)\s*/gi, '\n')
+    .replace(/\n?\s*\(clear,\s*relevant answer\)\s*/gi, '\n')
+    .replace(/\n?\s*\(give a short,[^)]+\)\s*/gi, '\n')
+    .replace(/\n?\s*\(repeat the student's question\)\s*/gi, '\n')
     .replace(/^\s*Question:\s*/i, '')
     .replace(/^\s*Answer:\s*/i, '')
     .replace(/\n\s*Question:\s*[\s\S]*?\n\s*Answer:\s*/gi, '\n')
+    .replace(/\n\s*Answer:\s*/gi, '\n')
     .replace(/\n\s*Code Example:\s*/gi, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
   return normalized
+}
+
+const extractAnswerParts = (rawAnswer, cleanPrompt) => {
+  const aiResponse = String(rawAnswer || '').trim()
+  let part1 = aiResponse
+  let part2 = ''
+  let language = ''
+
+  const codeBlockMatch = aiResponse.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
+  if (codeBlockMatch) {
+    language = codeBlockMatch[1] || 'code'
+    part2 = codeBlockMatch[2].trim()
+    part1 = aiResponse.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, '').trim()
+  }
+
+  part1 = part1
+    .replace(/^(PART1:\s*)/i, '')
+    .replace(/^(PART2:\s*)/i, '')
+    .trim()
+
+  return {
+    part1: normalizeAnswerText(part1 || aiResponse, cleanPrompt),
+    part2,
+    language
+  }
+}
+
+const buildLocalFallbackResponse = (avatarType, sessionId, cleanPrompt, apiError = null) => {
+  const localAnswer = generateIntelligentFallback(avatarType, cleanPrompt)
+  const { part1, part2, language } = extractAnswerParts(localAnswer, cleanPrompt)
+
+  return {
+    part1,
+    part2,
+    avatarType,
+    sessionId,
+    relatedArticles: generateFallbackArticles(avatarType, cleanPrompt, part1),
+    relatedVideos: generateFallbackVideos(avatarType, cleanPrompt, part1),
+    success: true,
+    answer: part1,
+    code: part2,
+    language,
+    apiUsed: 'local-fallback',
+    apiError,
+    fallback: true
+  }
 }
 
 export default async function handler(req, res) {
@@ -232,6 +344,7 @@ export default async function handler(req, res) {
   console.log('URL:', req.url)
   console.log('Content-Type:', req.headers['content-type'])
   console.log('Environment check - GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY)
+  console.log('Environment check - DEEPSEEK_API_KEY exists:', !!process.env.DEEPSEEK_API_KEY)
   console.log('Vercel Environment:', process.env.VERCEL_ENV || 'local')
   console.log('========================')
 
@@ -322,47 +435,59 @@ export default async function handler(req, res) {
 
     // Match the working Gangulys Notes avatar: Groq is the answer provider.
     const hasGroqKey = !!process.env.GROQ_API_KEY
+    const hasDeepSeekKey = !!process.env.DEEPSEEK_API_KEY
     
-    if (!hasGroqKey) {
-      console.error('GROQ_API_KEY is missing. Avatar answers require the same Groq API used by Gangulys Notes.')
+    if (!hasGroqKey && !hasDeepSeekKey) {
+      console.error('No live AI key is configured. Returning local teacher fallback instead of a student-facing error.')
 
-      return res.status(503).json({
-        part1: 'AI service is not configured. Please set GROQ_API_KEY and try again.',
-        part2: '',
-        avatarType,
-        sessionId,
-        relatedArticles: [],
-        relatedVideos: [],
-        success: false,
-        error: 'GROQ_API_KEY missing',
-        fallback: false
-      })
+      return res.status(200).json(
+        buildLocalFallbackResponse(avatarType, sessionId, cleanPrompt, 'No live AI provider key configured')
+      )
     }
 
     console.log('🔑 Available APIs:', { 
       groq: hasGroqKey,
+      deepseek: hasDeepSeekKey,
+      providerOrder: AI_PROVIDER_ORDER,
     })
 
     let aiResponse = ''
     let apiUsed = 'none'
     let apiError = null
 
-    try {
-      console.log('Trying Groq API...')
-      const groqResponse = await Promise.race([
-        callGroq(cleanPrompt, avatarType, sessionId),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS))
-      ])
-      aiResponse = groqResponse.text
-      apiUsed = 'groq:' + groqResponse.modelName
-    } catch (error) {
-      apiError = error.message
-      throw error
+    for (const provider of AI_PROVIDER_ORDER) {
+      if (aiResponse) break
+
+      try {
+        if (provider === 'groq' && hasGroqKey) {
+          console.log('Trying Groq API...')
+          const groqResponse = await Promise.race([
+            callGroq(cleanPrompt, avatarType, sessionId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Groq API timeout')), AI_TIMEOUT_MS))
+          ])
+          aiResponse = groqResponse.text
+          apiUsed = 'groq:' + groqResponse.modelName
+        } else if (provider === 'deepseek' && hasDeepSeekKey) {
+          console.log('Trying DeepSeek API...')
+          const deepSeekResponse = await Promise.race([
+            callDeepSeek(cleanPrompt, avatarType, sessionId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('DeepSeek API timeout')), AI_TIMEOUT_MS))
+          ])
+          aiResponse = deepSeekResponse.text
+          apiUsed = 'deepseek:' + deepSeekResponse.modelName
+        }
+      } catch (error) {
+        apiError = [apiError, `${provider}: ${error.message}`].filter(Boolean).join(' | ')
+        console.error(`[API ERROR] ${provider} failed, trying next provider or local fallback:`, error.message)
+      }
     }
 
     if (!aiResponse) {
       console.error('❌ No response generated from any source')
-      throw new Error('No response received from any AI service')
+      const fallbackResponse = buildLocalFallbackResponse(avatarType, sessionId, cleanPrompt, apiError || 'No response received from any AI service')
+      addToConversationHistory(avatarType, sessionId, 'user', cleanPrompt)
+      addToConversationHistory(avatarType, sessionId, 'assistant', fallbackResponse.part1)
+      return res.status(200).json(fallbackResponse)
     }
 
     addToConversationHistory(avatarType, sessionId, 'user', cleanPrompt)
@@ -501,7 +626,12 @@ export default async function handler(req, res) {
       errorType = 'API configuration error'
       message = 'The Groq API key is not configured correctly.'
     }
-    
+    if (cleanPrompt && avatarType && AVATAR_CONFIG[avatarType]) {
+      return res.status(200).json(
+        buildLocalFallbackResponse(avatarType, sessionId || 'fallback', cleanPrompt, `${errorType}: ${error.message || message}`)
+      )
+    }
+
     return res.status(statusCode).json({
       part1: message,
       part2: '',

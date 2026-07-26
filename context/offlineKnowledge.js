@@ -274,6 +274,13 @@ export const OFFLINE_KNOWLEDGE_BASE = {
 
 export const fallbackResponses = {
   'computer-teacher': {
+    'computer': `A computer is an electronic machine that accepts data, processes it according to instructions, stores information, and gives useful output.
+
+In simple words, a computer helps us do work quickly and accurately. We use it for typing, drawing, calculations, learning, online classes, programming, games, videos, and communication.
+
+The main parts of a computer are input devices, the CPU, memory, storage, and output devices. The CPU is called the brain of the computer because it processes instructions.
+
+You're doing a great job - keep practicing and stay curious!`,
     'javascript': `JavaScript is a programming language used to make websites interactive. HTML gives a page structure, CSS gives it style, and JavaScript adds behavior.
 
 Key JavaScript ideas include:
@@ -530,8 +537,109 @@ public class MagicNumber {
 Example: 1729 -> 1 + 7 + 2 + 9 = 19, then 1 + 9 = 10, then 1 + 0 = 1, so 1729 is a magic number.`
   }
 
+  if (promptLower.includes('palindrome') && promptLower.includes('java')) {
+    return `You asked for a Java program to check whether a number is a palindrome.
+
+A palindrome number reads the same from left to right and right to left. For example, 121 is a palindrome.
+
+\`\`\`java
+import java.util.Scanner;
+
+public class PalindromeNumber {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter a number: ");
+        int num = sc.nextInt();
+        int original = num;
+        int reverse = 0;
+
+        while (num > 0) {
+            int digit = num % 10;
+            reverse = reverse * 10 + digit;
+            num = num / 10;
+        }
+
+        if (original == reverse) {
+            System.out.println(original + " is a palindrome number.");
+        } else {
+            System.out.println(original + " is not a palindrome number.");
+        }
+
+        sc.close();
+    }
+}
+\`\`\`
+
+You're doing a great job - keep practicing and stay curious!`
+  }
+
+  if (promptLower.includes('special number') && promptLower.includes('java')) {
+    return `You asked for a Java program to check whether a number is a special number.
+
+In many ICSE Java programs, a special number means the sum of the factorials of its digits is equal to the original number. For example, 145 is special because 1! + 4! + 5! = 145.
+
+\`\`\`java
+import java.util.Scanner;
+
+public class SpecialNumber {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter a number: ");
+        int num = sc.nextInt();
+        int temp = num;
+        int sum = 0;
+
+        while (temp > 0) {
+            int digit = temp % 10;
+            int fact = 1;
+
+            for (int i = 1; i <= digit; i++) {
+                fact = fact * i;
+            }
+
+            sum = sum + fact;
+            temp = temp / 10;
+        }
+
+        if (sum == num) {
+            System.out.println(num + " is a special number.");
+        } else {
+            System.out.println(num + " is not a special number.");
+        }
+
+        sc.close();
+    }
+}
+\`\`\`
+
+You're doing a great job - keep practicing and stay curious!`
+  }
+
   if (/(write|create|make).*(program|code)|program.*(java|python|javascript|c\+\+)/.test(promptLower)) {
-    return `You asked for a programming solution. I could not reach the live AI service at this moment, so please try again once more. I should answer with the exact requested program, not a general computer science explanation.`
+    return `You asked for a programming solution.
+
+Here is a simple Java program structure that students can easily understand. You can change the logic inside the main method according to the exact problem.
+
+\`\`\`java
+import java.util.Scanner;
+
+public class StudentProgram {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter a number: ");
+        int num = sc.nextInt();
+
+        System.out.println("You entered: " + num);
+
+        sc.close();
+    }
+}
+\`\`\`
+
+You're doing a great job - keep practicing and stay curious!`
   }
 
   return ''
