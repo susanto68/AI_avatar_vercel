@@ -274,6 +274,44 @@ export const OFFLINE_KNOWLEDGE_BASE = {
 
 export const fallbackResponses = {
   'computer-teacher': {
+    'sorting': `Sorting means arranging data in a proper order.
+
+In computer science, sorting is used to arrange numbers, names, marks, dates, or records in ascending order or descending order.
+
+Example:
+If the numbers are 45, 12, 78, 9, then after sorting in ascending order they become 9, 12, 45, 78.
+
+Sorting is useful because it makes searching, comparing, and reading data easier. For example, a school can sort students by roll number, marks, or names.
+
+Common sorting techniques include:
+• Bubble Sort
+• Selection Sort
+• Insertion Sort
+• Merge Sort
+• Quick Sort
+
+For beginners, Bubble Sort is often taught first because it is easy to understand.
+
+You're doing a great job - keep practicing and stay curious!`,
+    'sort': `Sorting means arranging data in a proper order.
+
+In computer science, sorting is used to arrange numbers, names, marks, dates, or records in ascending order or descending order.
+
+Example:
+If the numbers are 45, 12, 78, 9, then after sorting in ascending order they become 9, 12, 45, 78.
+
+Sorting is useful because it makes searching, comparing, and reading data easier. For example, a school can sort students by roll number, marks, or names.
+
+Common sorting techniques include:
+• Bubble Sort
+• Selection Sort
+• Insertion Sort
+• Merge Sort
+• Quick Sort
+
+For beginners, Bubble Sort is often taught first because it is easy to understand.
+
+You're doing a great job - keep practicing and stay curious!`,
     'data structure': `Data structures are ways of organizing data in a computer so that we can use it efficiently.
 
 In simple words, a data structure helps a program store, search, update, and arrange data properly. For example, if we keep student marks in a list, we can easily find, sort, or change the marks.
