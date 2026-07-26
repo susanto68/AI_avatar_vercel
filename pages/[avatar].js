@@ -12,29 +12,12 @@ import ArticleCarousel from '../components/ChatInterface/ArticleCarousel'
 import YouTubeVideos from '../components/ChatInterface/YouTubeVideos'
 import VoiceFallback from '../components/VoiceControls/VoiceFallback'
 import { ERROR_MESSAGES, UI_TEXT, getAvatarGreeting } from '../context/constant.js'
-import { generateIntelligentFallback } from '../context/offlineKnowledge.js'
-import { generateFallbackArticles, generateFallbackVideos } from '../lib/suggestions.js'
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 
 const AVATAR_VOICE_HANDOFF_KEY = 'sirgangulyAvatarVoiceHandoff'
-
-const extractClientAnswerParts = (rawAnswer) => {
-  const answer = String(rawAnswer || '').trim()
-  const codeBlockMatch = answer.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
-
-  if (!codeBlockMatch) {
-    return { answer, code: '', language: 'code' }
-  }
-
-  return {
-    answer: answer.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, '').trim(),
-    code: codeBlockMatch[2].trim(),
-    language: codeBlockMatch[1] || 'code'
-  }
-}
 
 export default function AvatarChat() {
   const router = useRouter()
@@ -258,30 +241,15 @@ export default function AvatarChat() {
     setApiError(null)
     setShowError(false)
 
-    const applyLocalFallback = (reason) => {
-      console.warn('Using local avatar fallback:', reason)
-      const fallbackRaw = generateIntelligentFallback(avatar, cleanPrompt)
-      const fallbackParts = extractClientAnswerParts(fallbackRaw)
-      const responseText = fallbackParts.answer || fallbackRaw
-
-      setCurrentText(responseText)
-      setCodeContent(fallbackParts.code || '')
-      setCodeLanguage(fallbackParts.language || 'code')
-      setRelatedArticles(generateFallbackArticles(avatar, cleanPrompt, responseText))
-      setRelatedVideos(generateFallbackVideos(avatar, cleanPrompt, responseText))
-      setApiError(null)
-      setShowError(false)
-
-      setIsSpeaking(true)
-      setIsPaused(false)
-      speakText(buildReadableAnswerText(cleanPrompt, responseText), () => {
-        setIsSpeaking(false)
-        setIsPaused(false)
-      }, { avatarType: avatar })
-    }
-
     if (!navigator.onLine) {
-      applyLocalFallback('browser offline')
+      const message = 'You are offline. Please check your internet connection and try again.'
+      setCurrentText(message)
+      setCodeContent('')
+      setCodeLanguage('code')
+      setRelatedArticles([])
+      setRelatedVideos([])
+      setApiError(message)
+      setShowError(true)
       setApiProcessing(false)
       return
     }
@@ -308,7 +276,7 @@ export default function AvatarChat() {
         }
 
         const data = await res.json()
-        if (!res.ok || data.success === false) {
+        if (!res.ok || data.success === false || data.fallback) {
           throw new Error(data.error || `HTTP ${res.status}`)
         }
 
@@ -335,7 +303,23 @@ export default function AvatarChat() {
           await new Promise(r => setTimeout(r, 2000))
           return attemptFetch(retry + 1)
         }
-        applyLocalFallback(err.name === 'AbortError' ? 'request timeout' : err.message || 'server unreachable')
+        const message = err.name === 'AbortError'
+          ? 'Request timed out. Please try again.'
+          : (!navigator.onLine
+            ? 'You are offline. Please check your internet connection and try again.'
+            : err.message || 'Could not reach the server. Please try again.')
+
+        console.error('Avatar chat API failed:', err)
+        stopSpeaking()
+        setIsSpeaking(false)
+        setIsPaused(false)
+        setCurrentText(message)
+        setCodeContent('')
+        setCodeLanguage('code')
+        setRelatedArticles([])
+        setRelatedVideos([])
+        setApiError(message)
+        setShowError(true)
       }
     }
 
