@@ -4,21 +4,15 @@ import { generateIntelligentFallback } from '../../context/offlineKnowledge.js'
 
 import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
 
-const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'
-const GROQ_MODELS = (process.env.GROQ_MODEL || 'llama-3.1-8b-instant')
-  .split(',')
-  .map((model) => model.trim())
-  .filter(Boolean)
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
+const GROQ_MODELS = ['llama-3.1-8b-instant']
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
 const DEEPSEEK_MODELS = (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
   .split(',')
   .map((model) => model.trim())
   .filter(Boolean)
-const AI_PROVIDER_ORDER = (process.env.AI_PROVIDER_ORDER || 'groq,deepseek')
-  .split(',')
-  .map((provider) => provider.trim().toLowerCase())
-  .filter(Boolean)
-const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1024)
+const AI_PROVIDER_ORDER = ['groq']
+const AI_MAX_OUTPUT_TOKENS = 1024
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
 
 const COMPUTER_TEACHER_GANGULYS_PROMPT = `You are an AI Avatar as Computer Teacher, created by Sir Ganguly, a kind and supportive Computer Teacher, to help learners improve their Computer subject, especially for the ICSE curriculum.

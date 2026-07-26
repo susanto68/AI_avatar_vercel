@@ -274,6 +274,36 @@ export const OFFLINE_KNOWLEDGE_BASE = {
 
 export const fallbackResponses = {
   'computer-teacher': {
+    'data structure': `Data structures are ways of organizing data in a computer so that we can use it efficiently.
+
+In simple words, a data structure helps a program store, search, update, and arrange data properly. For example, if we keep student marks in a list, we can easily find, sort, or change the marks.
+
+Common data structures include:
+• Array - stores items in order
+• Stack - follows Last In, First Out
+• Queue - follows First In, First Out
+• Linked List - stores data using connected nodes
+• Tree - stores data in a hierarchy
+• Graph - stores connected objects
+
+Choosing the right data structure makes a program faster, cleaner, and easier to understand.
+
+You're doing a great job - keep practicing and stay curious!`,
+    'data structures': `Data structures are ways of organizing data in a computer so that we can use it efficiently.
+
+In simple words, a data structure helps a program store, search, update, and arrange data properly. For example, if we keep student marks in a list, we can easily find, sort, or change the marks.
+
+Common data structures include:
+• Array - stores items in order
+• Stack - follows Last In, First Out
+• Queue - follows First In, First Out
+• Linked List - stores data using connected nodes
+• Tree - stores data in a hierarchy
+• Graph - stores connected objects
+
+Choosing the right data structure makes a program faster, cleaner, and easier to understand.
+
+You're doing a great job - keep practicing and stay curious!`,
     'computer': `A computer is an electronic machine that accepts data, processes it according to instructions, stores information, and gives useful output.
 
 In simple words, a computer helps us do work quickly and accurately. We use it for typing, drawing, calculations, learning, online classes, programming, games, videos, and communication.
@@ -685,6 +715,15 @@ export const generateIntelligentFallback = (avatarType, prompt) => {
   // Check if we have a specific response for the prompt
   const promptLower = prompt.toLowerCase()
   for (const [key, response] of Object.entries(avatarResponses)) {
+    if (key === 'computer') {
+      const asksComputerDefinition = /^(what is|define|explain)\s+(a\s+)?computer\??$/i.test(prompt.trim())
+        || /^computer\??$/i.test(prompt.trim())
+      if (asksComputerDefinition) {
+        return response
+      }
+      continue
+    }
+
     if (key !== 'default' && promptLower.includes(key)) {
       return response
     }
