@@ -528,7 +528,7 @@ Key areas in English include:
 const generateProgrammingFallback = (prompt) => {
   const promptLower = prompt.toLowerCase()
 
-  if (promptLower.includes('magic number') && promptLower.includes('java')) {
+  if (promptLower.includes('magic number')) {
     return `You asked for a Java program to check whether a number is a magic number.
 
 A magic number is usually checked by repeatedly adding the digits until a single digit remains. If the final single digit is 1, it is a magic number.
