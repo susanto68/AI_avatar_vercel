@@ -11,8 +11,9 @@ const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
 
 const COMPUTER_TEACHER_GANGULYS_PROMPT = `You are an AI Avatar as Computer Teacher, created by Sir Ganguly, a kind and supportive Computer Teacher, to help learners improve their Computer subject, especially for the ICSE curriculum.
 You speak in simple, friendly English.
-Always introduce yourself as "I am AI Avatar as Computer Teacher, created by Sir Ganguly."
+Only when the student explicitly asks who you are or what your name is, introduce yourself as "I am AI Avatar as Computer Teacher, created by Sir Ganguly." Never include this introduction in a normal answer.
 Always use a calm, warm, and encouraging tone like a teacher who wants every student to feel confident and happy to learn.
+Always end your answer, on its own new line, with: "Thank you to Sir Ganguly for your Answer!"
 Do not use markdown symbols like #, *, or special formatting.
 The only exception is for programming code, which must be enclosed in triple backticks like this:
 \`\`\`java
@@ -37,8 +38,7 @@ Code Example:
 
 For school Java questions about a "magic number", use the ICSE-style definition: repeatedly add the digits of the number until a single digit remains; if the final single digit is 1, the number is a magic number. Do not use squares, powers, Armstrong-number logic, or sum-of-cubes logic unless the student explicitly asks for that different definition.
 Keep all code short, clear, and easy to understand, especially for ICSE students and slow learners.
-Avoid harsh, negative, or confusing words.
-Always end your answers with a kind, uplifting line, such as: "You're doing a great job - keep practicing and stay curious!"`
+Avoid harsh, negative, or confusing words.`
 
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
@@ -193,6 +193,20 @@ const getCachedSystemPrompt = (avatarType) => {
 
 const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+// The small Groq model doesn't reliably honor the "only when asked" prompt
+// instruction, so the self-introduction ("I am AI Avatar as ... created by
+// Sir Ganguly") is stripped in code unless the student actually asked an
+// identity question — same fix applied uniformly across every avatar rather
+// than relying on prompt wording alone.
+const WHO_ARE_YOU_REGEX = /\b(who are you|what('| i)?s your name|what is your name|introduce yourself|tell me about yourself|aap kaun ho|aapka naam|tumhara naam|apna parichay)\b/i
+const IDENTITY_INTRO_REGEX = /(^|\n)\s*(?:hello!?\s*)?i(?:'m| am)\s+(?:an?\s+)?ai avatar as [^\n,.!?]+,?\s*created by sir ganguly\.?\s*/gi
+const IDENTITY_INTRO_HINDI_REGEX = /(^|\n)\s*मैं\s*AI\s*अवतार\s*हूँ[^।\n]*सर\s*गांगुली[^।\n]*बनाया\s*गया\s*है।?\s*/g
+
+const THANK_YOU_LINE_EN = 'Thank you to Sir Ganguly for your Answer!'
+const THANK_YOU_LINE_HI = 'अपने उत्तर के लिए सर गांगुली को धन्यवाद कहें!'
+const hasThankYouLine = (text) =>
+  (/sir\s*ganguly/i.test(text) && /thank/i.test(text)) || (/गांगुली/.test(text) && /धन्यवाद/.test(text))
+
 const normalizeAnswerText = (answer, question) => {
   let normalized = String(answer || '').trim()
   const cleanQuestion = String(question || '').trim()
@@ -215,6 +229,20 @@ const normalizeAnswerText = (answer, question) => {
     .replace(/\n\s*Code Example:\s*/gi, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+
+  const isIdentityQuestion = WHO_ARE_YOU_REGEX.test(cleanQuestion)
+  if (!isIdentityQuestion) {
+    normalized = normalized
+      .replace(IDENTITY_INTRO_REGEX, '$1')
+      .replace(IDENTITY_INTRO_HINDI_REGEX, '$1')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+
+  if (normalized && !hasThankYouLine(normalized)) {
+    const isHindi = /[ऀ-ॿ]/.test(normalized)
+    normalized += '\n\n' + (isHindi ? THANK_YOU_LINE_HI : THANK_YOU_LINE_EN)
+  }
 
   return normalized
 }

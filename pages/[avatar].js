@@ -63,10 +63,7 @@ export default function AvatarChat() {
   const avatarConfig = AVATAR_CONFIG[avatar] || null
 
   const buildReadableAnswerText = useCallback((question, answer) => {
-    const cleanQuestion = String(question || '').trim()
-    const cleanAnswer = String(answer || '').trim()
-    if (!cleanQuestion) return cleanAnswer
-    return `You have asked:\n${cleanQuestion}\n\n${cleanAnswer}`
+    return String(answer || '').trim()
   }, [])
 
   const addTimeout = useCallback((fn, delay) => {
