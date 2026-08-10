@@ -5,29 +5,13 @@
 // ===== WELCOME MESSAGES =====
 export const WELCOME_MESSAGES = {
   // Main page welcome
-  MAIN_PAGE: `Hi, welcome to this experiment! Choose your AI teacher to begin learning.
+  MAIN_PAGE: `Hello, I am Sir Ganguly. Welcome to my AI Avatar Experiment!
 
-Welcome to the AI Learning Experience
+This platform blends education, technology, and human values through Artificial Intelligence, so you can freely learn, explore, and ask questions.
 
-Hello, I am Sir Ganguly.
-Welcome to my AI Avatar Experiment.
+As Tagore wrote: "Where the mind is without fear and the head is held high, where knowledge is free."
 
-This platform is a humble effort to combine education, technology, wisdom, and human values through Artificial Intelligence.
-
-Here, you are free to learn, explore, ask questions, and discover new ideas in a friendly and supportive environment.
-
-The inspiration behind this initiative comes from the timeless words of Rabindranath Tagore:
-
-"Where the mind is without fear and the head is held high...
-Where knowledge is free..."
-
-In today's world of Artificial Intelligence, knowledge is no longer limited to classrooms alone. It can reach every learner through a small device in their hands. Yet true education is not only information - it is guidance, wisdom, values, humanity, emotion, and consciousness.
-
-This portal believes that learning should be open, meaningful, and accessible to everyone without barriers.
-
-Thank you for being a part of this experiment in the future of learning.
-
-Let us learn together.`,
+Choose your AI teacher below to begin learning.`,
   
   // Avatar-specific greetings
   AVATAR_GREETINGS: {
