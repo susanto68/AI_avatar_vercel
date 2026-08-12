@@ -10,6 +10,7 @@ import { speakText, initSynth, unlockAudio } from '../lib/speech'
 import { WELCOME_MESSAGES, UI_TEXT } from '../context/constant.js'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
+import SpaceBackground from '../components/SpaceBackground/SpaceBackground'
 
 const HOME_WELCOME_KEY = 'sirgangulyAvatarHomeWelcomePlayed'
 const AVATAR_VOICE_HANDOFF_KEY = 'sirgangulyAvatarVoiceHandoff'
@@ -183,6 +184,8 @@ export default function Home() {
       
       <VoiceFallback onVoiceSupportChange={(supported) => console.log('Voice support:', supported)}>
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative">
+          <SpaceBackground />
+          <div className="relative z-10">
           {/* WhatsApp Button */}
           <WhatsAppButton />
           <VisitorCounter />
@@ -285,6 +288,7 @@ Into that heaven of freedom, my Father, let my country awake.`}
                 Rabindranath Tagore
               </p>
             </section>
+          </div>
           </div>
         </div>
       </VoiceFallback>

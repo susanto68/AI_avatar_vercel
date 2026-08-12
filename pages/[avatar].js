@@ -16,6 +16,7 @@ import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback'
 import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
+import SpaceBackground from '../components/SpaceBackground/SpaceBackground'
 
 const AVATAR_VOICE_HANDOFF_KEY = 'sirgangulyAvatarVoiceHandoff'
 
@@ -359,8 +360,9 @@ export default function AvatarChat() {
   // ── Loading state ──────────────────────────────────────────────────────────
   if (!avatar || !avatarConfig) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
-        <div className="text-center text-white">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4 relative">
+        <SpaceBackground />
+        <div className="text-center text-white relative z-10">
           <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
           <p className="text-lg mb-4">Loading avatar...</p>
           <button onClick={() => router.push('/')} className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20">
@@ -381,6 +383,8 @@ export default function AvatarChat() {
 
       <VoiceFallback onVoiceSupportChange={(s) => console.log('Voice support:', s)}>
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-x-hidden">
+          <SpaceBackground />
+          <div className="relative z-10">
           <WhatsAppButton />
           <VisitorCounter />
 
@@ -555,6 +559,7 @@ export default function AvatarChat() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       </VoiceFallback>

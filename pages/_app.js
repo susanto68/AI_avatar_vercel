@@ -1,5 +1,6 @@
 import '../styles/globals.css'
 import '../styles/modern-cursor.css'
+import '../styles/space-background.css'
 import { useEffect } from 'react'
 import ModernCursor from '../components/ModernCursor/ModernCursor'
 import FloatingPet from '../components/FloatingPet/FloatingPet'
