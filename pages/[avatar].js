@@ -8,6 +8,7 @@ import { usePWA } from '../hooks/usePWA'
 import AvatarDisplay from '../components/ChatInterface/AvatarDisplay'
 import TextDisplay from '../components/ChatInterface/TextDisplay'
 import CodeBox from '../components/ChatInterface/CodeBox'
+import DiagramView from '../components/ChatInterface/DiagramView'
 import ArticleCarousel from '../components/ChatInterface/ArticleCarousel'
 import YouTubeVideos from '../components/ChatInterface/YouTubeVideos'
 import VoiceFallback from '../components/VoiceControls/VoiceFallback'
@@ -49,6 +50,7 @@ export default function AvatarChat() {
   const [apiError, setApiError]             = useState(null)
   const [codeContent, setCodeContent]       = useState('')
   const [codeLanguage, setCodeLanguage]     = useState('code')
+  const [diagramSpec, setDiagramSpec]       = useState(null)
   const [relatedArticles, setRelatedArticles] = useState([])
   const [relatedVideos, setRelatedVideos]   = useState([])
   const [showError, setShowError]           = useState(false)
@@ -244,6 +246,7 @@ export default function AvatarChat() {
       setCurrentText(message)
       setCodeContent('')
       setCodeLanguage('code')
+      setDiagramSpec(null)
       setRelatedArticles([])
       setRelatedVideos([])
       setApiError(message)
@@ -283,6 +286,7 @@ export default function AvatarChat() {
         setCurrentText(responseText)
         setCodeContent(data.part2 || '')
         setCodeLanguage(data.language || 'code')
+        setDiagramSpec(data.diagram || null)
         setRelatedArticles(data.relatedArticles || [])
         setRelatedVideos(data.relatedVideos || [])
 
@@ -314,6 +318,7 @@ export default function AvatarChat() {
         setCurrentText(message)
         setCodeContent('')
         setCodeLanguage('code')
+        setDiagramSpec(null)
         setRelatedArticles([])
         setRelatedVideos([])
         setApiError(message)
@@ -540,6 +545,13 @@ export default function AvatarChat() {
                 <div className="break-words animate-fadeIn">
                   <ErrorBoundary fallback={<TextDisplayFallback text={currentText} />}>
                     <TextDisplay text={currentText} isProcessing={isProcessing} avatarConfig={avatarConfig} isListening={isListening} lastQuestion={lastQuestion} />
+                  </ErrorBoundary>
+                </div>
+              )}
+              {diagramSpec && (
+                <div className="animate-fadeIn">
+                  <ErrorBoundary fallback={null}>
+                    <DiagramView spec={diagramSpec} />
                   </ErrorBoundary>
                 </div>
               )}

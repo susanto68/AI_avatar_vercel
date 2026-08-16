@@ -1,44 +1,47 @@
 import { AVATAR_CONFIG } from '../../lib/avatars'
-import { getCompleteSystemPrompt } from '../../context/prompts.js'
+import { getCompleteSystemPrompt, DIAGRAM_PROMPT } from '../../context/prompts.js'
+import { extractDiagramSpec } from '../../lib/diagramSpec.js'
 
 import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
 
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
 const GROQ_MODELS = ['llama-3.1-8b-instant']
 const AI_PROVIDER_ORDER = ['groq']
-const AI_MAX_OUTPUT_TOKENS = 1024
+const AI_MAX_OUTPUT_TOKENS = 1800
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
 
 const COMPUTER_TEACHER_GANGULYS_PROMPT = `You are an AI Avatar as Computer Teacher, created by Sir Ganguly, a kind and supportive Computer Teacher, to help learners improve their Computer subject, especially for the ICSE curriculum.
 You speak in simple, friendly English.
 Only when the student explicitly asks who you are or what your name is, introduce yourself as "I am AI Avatar as Computer Teacher, created by Sir Ganguly." Never include this introduction in a normal answer.
 Always use a calm, warm, and encouraging tone like a teacher who wants every student to feel confident and happy to learn.
-Always end your answer, on its own new line, with: "Thank you to Sir Ganguly for your Answer!"
 Do not use markdown symbols like #, *, or special formatting.
 The only exception is for programming code, which must be enclosed in triple backticks like this:
 \`\`\`java
 System.out.println("Hello, world!");
 \`\`\`
 
-When a student asks a conceptual question (like server, IP address, networking, hardware, or software):
-Use this format:
-Question:
-(Repeat the student's question)
-Answer:
-(Give a short, clear explanation in friendly and simple language)
+Structure every answer using these labeled sections, in this exact order, each starting on its own new line with the exact label shown:
 
-When a student asks a programming question (Java, Python, etc.):
-Use this format:
 Question:
 (Repeat the student's question)
-Answer:
-(Give a short, clear explanation, then show the code)
-Code Example:
-(Enclose the code inside triple backticks)
+
+Explanation:
+(A detailed, clear explanation in friendly and simple language)
+
+Example:
+(One worked example. For programming questions, put the complete runnable code here inside triple backticks, with a one-line explanation of what it does first.)
+
+Key Notes:
+(3 to 6 short numbered takeaways: 1. ... 2. ... 3. ...)
+
+Never print the parenthesized template instructions themselves - replace each one with real content.
+Make the Explanation genuinely detailed: normally 4 to 8 sentences that teach the idea properly, not a one-line summary.
+For programming questions, especially when the student says "write a program", make sure the Example section contains the complete, correct, runnable program - do not just describe it in words.
 
 For school Java questions about a "magic number", use the ICSE-style definition: repeatedly add the digits of the number until a single digit remains; if the final single digit is 1, the number is a magic number. Do not use squares, powers, Armstrong-number logic, or sum-of-cubes logic unless the student explicitly asks for that different definition.
 Keep all code short, clear, and easy to understand, especially for ICSE students and slow learners.
-Avoid harsh, negative, or confusing words.`
+Avoid harsh, negative, or confusing words.
+Always end your answer, on its own new line, with: "Thank you to Sir Ganguly for your Answer!"`
 
 // In-memory conversation storage with enhanced session management
 const conversationHistory = new Map()
@@ -108,7 +111,7 @@ const addToConversationHistory = (avatarType, sessionId, role, content) => {
 
 const getGroqSystemPrompt = (avatarType) => {
   if (avatarType === 'computer-teacher') {
-    return COMPUTER_TEACHER_GANGULYS_PROMPT
+    return `${COMPUTER_TEACHER_GANGULYS_PROMPT}\n\n${DIAGRAM_PROMPT}`
   }
 
   return getCachedSystemPrompt(avatarType)
@@ -204,8 +207,13 @@ const IDENTITY_INTRO_HINDI_REGEX = /(^|\n)\s*मैं\s*AI\s*अवतार\s*
 
 const THANK_YOU_LINE_EN = 'Thank you to Sir Ganguly for your Answer!'
 const THANK_YOU_LINE_HI = 'अपने उत्तर के लिए सर गांगुली को धन्यवाद कहें!'
-const hasThankYouLine = (text) =>
-  (/sir\s*ganguly/i.test(text) && /thank/i.test(text)) || (/गांगुली/.test(text) && /धन्यवाद/.test(text))
+// The prompt shows both language variants (so the model knows the Hindi one
+// exists for Hindi answers), which means it sometimes closes an all-English
+// answer with the Hindi line anyway. Rather than just detecting "is *a*
+// thank-you line present" and passing through whatever the model wrote, strip
+// it (either language) and re-append the one matching the answer's own
+// language, so the closing line can never mismatch the rest of the answer.
+const THANK_YOU_STRIP_REGEX = /\n*\s*(?:thank you to sir ganguly for your answer!?|अपने उत्तर के लिए सर गांगुली को धन्यवाद कहें!?)\s*$/i
 
 const normalizeAnswerText = (answer, question) => {
   let normalized = String(answer || '').trim()
@@ -213,7 +221,10 @@ const normalizeAnswerText = (answer, question) => {
 
   if (cleanQuestion) {
     const questionPattern = escapeRegExp(cleanQuestion).replace(/\s+/g, '\\s+')
-    const repeatedQuestionBlock = new RegExp(`\\s*Question:\\s*${questionPattern}\\s*Answer:\\s*`, 'gi')
+    // Matches both the old "...Answer:" closing label and the new
+    // "...Explanation:" one, so a repeated question never leaks through
+    // regardless of which label the model used to close it.
+    const repeatedQuestionBlock = new RegExp(`\\s*Question:\\s*${questionPattern}\\s*(?:Explanation|Answer):\\s*`, 'gi')
     normalized = normalized.replace(repeatedQuestionBlock, '\n').trim()
   }
 
@@ -222,11 +233,20 @@ const normalizeAnswerText = (answer, question) => {
     .replace(/\n?\s*\(clear,\s*relevant answer\)\s*/gi, '\n')
     .replace(/\n?\s*\(give a short,[^)]+\)\s*/gi, '\n')
     .replace(/\n?\s*\(repeat the student's question\)\s*/gi, '\n')
+    .replace(/\n?\s*\(a detailed explanation\)\s*/gi, '\n')
+    .replace(/\n?\s*\(one worked example\)\s*/gi, '\n')
+    .replace(/\n?\s*\(short numbered takeaways\)\s*/gi, '\n')
     .replace(/^\s*Question:\s*/i, '')
-    .replace(/^\s*Answer:\s*/i, '')
-    .replace(/\n\s*Question:\s*[\s\S]*?\n\s*Answer:\s*/gi, '\n')
-    .replace(/\n\s*Answer:\s*/gi, '\n')
+    .replace(/^\s*(?:Explanation|Answer):\s*/i, '')
+    .replace(/\n\s*Question:\s*[\s\S]*?\n\s*(?:Explanation|Answer):\s*/gi, '\n')
+    .replace(/\n\s*(?:Explanation|Answer):\s*/gi, '\n')
     .replace(/\n\s*Code Example:\s*/gi, '\n')
+    // Example:/Key Notes: are kept visible but converted to real markdown
+    // headings deterministically here, rather than relying on the model to
+    // emit "##" itself (unreliable for a small model, and computer-teacher's
+    // prompt explicitly forbids markdown symbols from the model).
+    .replace(/^[ \t]*Example:[ \t]*/im, '## Example\n')
+    .replace(/^[ \t]*Key Notes:[ \t]*/im, '## Key Notes\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
@@ -239,7 +259,8 @@ const normalizeAnswerText = (answer, question) => {
       .trim()
   }
 
-  if (normalized && !hasThankYouLine(normalized)) {
+  normalized = normalized.replace(THANK_YOU_STRIP_REGEX, '').trim()
+  if (normalized) {
     const isHindi = /[ऀ-ॿ]/.test(normalized)
     normalized += '\n\n' + (isHindi ? THANK_YOU_LINE_HI : THANK_YOU_LINE_EN)
   }
@@ -386,6 +407,7 @@ export default async function handler(req, res) {
       return res.status(503).json({
         part1: '',
         part2: '',
+        diagram: null,
         avatarType,
         sessionId,
         relatedArticles: [],
@@ -433,17 +455,22 @@ export default async function handler(req, res) {
     addToConversationHistory(avatarType, sessionId, 'user', cleanPrompt)
     addToConversationHistory(avatarType, sessionId, 'assistant', aiResponse)
 
+    // Strip + validate the DIAGRAM:{...} line before any other parsing
+    // touches the text, so no later regex has to reason about it and a
+    // malformed/unsupported diagram can never leak raw JSON into part1.
+    const { diagram, text: responseNoDiagram } = extractDiagramSpec(aiResponse)
+
     // Parse the response into part1, part2, and related content
-    let part1 = aiResponse
+    let part1 = responseNoDiagram
     let part2 = ''
     let relatedArticles = []
     let relatedVideos = []
 
     // Try to extract PART1 and PART2 from the response
-    const part1Match = aiResponse.match(/PART1:\s*(.*?)(?=\s*PART2:|RELATED_ARTICLES:|RELATED_VIDEOS:|$)/is)
-    const part2Match = aiResponse.match(/PART2:\s*(.*?)(?=\s*RELATED_ARTICLES:|RELATED_VIDEOS:|$)/is)
-    const articlesMatch = aiResponse.match(/RELATED_ARTICLES:\s*(.*?)(?=\s*RELATED_VIDEOS:|$)/is)
-    const videosMatch = aiResponse.match(/RELATED_VIDEOS:\s*(.*?)$/is)
+    const part1Match = responseNoDiagram.match(/PART1:\s*(.*?)(?=\s*PART2:|RELATED_ARTICLES:|RELATED_VIDEOS:|$)/is)
+    const part2Match = responseNoDiagram.match(/PART2:\s*(.*?)(?=\s*RELATED_ARTICLES:|RELATED_VIDEOS:|$)/is)
+    const articlesMatch = responseNoDiagram.match(/RELATED_ARTICLES:\s*(.*?)(?=\s*RELATED_VIDEOS:|$)/is)
+    const videosMatch = responseNoDiagram.match(/RELATED_VIDEOS:\s*(.*?)$/is)
 
     if (part1Match) {
       part1 = part1Match[1].trim()
@@ -469,12 +496,12 @@ export default async function handler(req, res) {
 
     // If no explicit parts found, try to extract code blocks for part2
     if (!part2) {
-      const codeBlockMatch = aiResponse.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
+      const codeBlockMatch = responseNoDiagram.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
       if (codeBlockMatch) {
         language = codeBlockMatch[1] || 'code'
         part2 = codeBlockMatch[2].trim()
         // Remove code blocks from part1
-        part1 = aiResponse.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, '').trim()
+        part1 = responseNoDiagram.replace(/```(\w+)?\s*\n?([\s\S]*?)```/g, '').trim()
       }
     } else {
       const explicitCodeMatch = part2.match(/```(\w+)?\s*\n?([\s\S]*?)```/)
@@ -490,7 +517,7 @@ export default async function handler(req, res) {
 
     // If part1 is empty, use the full response
     if (!part1) {
-      part1 = aiResponse
+      part1 = responseNoDiagram
     }
 
     part1 = normalizeAnswerText(part1, cleanPrompt)
@@ -517,6 +544,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       part1,
       part2,
+      diagram,
       avatarType,
       sessionId,
       relatedArticles,
@@ -569,6 +597,7 @@ export default async function handler(req, res) {
     return res.status(statusCode).json({
       part1: message,
       part2: '',
+      diagram: null,
       avatarType: avatarType || 'unknown',
       sessionId: sessionId || 'fallback',
       relatedArticles: cleanPrompt ? generateFallbackArticles(avatarType, cleanPrompt, message) : [],
