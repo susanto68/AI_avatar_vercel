@@ -5,10 +5,19 @@ import { extractDiagramSpec } from '../../lib/diagramSpec.js'
 import { parseRelatedContent, generateFallbackArticles, generateFallbackVideos, getQuotaStatus } from '../../lib/suggestions.js'
 
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
-const GROQ_MODELS = ['llama-3.1-8b-instant']
+// llama-3.1-8b-instant was removed from Groq's catalog (confirmed via their
+// /v1/models endpoint - no longer listed for this account). Primary model
+// chosen for speed/size parity with the old one; the other two are ordered
+// fallbacks the existing per-model retry loop already tries automatically,
+// so a single future model removal doesn't take the whole app down again.
+const GROQ_MODELS = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-120b']
 const AI_PROVIDER_ORDER = ['groq']
 const AI_MAX_OUTPUT_TOKENS = 1800
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 20000)
+// Prior turns included as real chat context so follow-up questions in the
+// same session aren't answered in isolation. 6 messages = last 3 exchanges -
+// enough for real continuity without ballooning every request's token cost.
+const AI_HISTORY_MESSAGES = 6
 
 const COMPUTER_TEACHER_GANGULYS_PROMPT = `You are an AI Avatar as Computer Teacher, created by Sir Ganguly, a kind and supportive Computer Teacher, to help learners improve their Computer subject, especially for the ICSE curriculum.
 You speak in simple, friendly English.
@@ -120,8 +129,15 @@ const getGroqSystemPrompt = (avatarType) => {
 // Call Groq OpenAI-compatible API with ordered model fallbacks
 const callGroq = async (prompt, avatarType, sessionId) => {
   const systemPrompt = getGroqSystemPrompt(avatarType)
+  // Prior turns for THIS avatar+session, oldest first, mapped to plain
+  // {role, content} (Groq doesn't want the `timestamp` field). Called before
+  // this turn's own question is pushed to history, so it never duplicates.
+  const history = getConversationHistory(avatarType, sessionId)
+    .slice(-AI_HISTORY_MESSAGES)
+    .map(({ role, content }) => ({ role, content }))
   const messages = [
     { role: 'system', content: systemPrompt },
+    ...history,
     { role: 'user', content: prompt }
   ]
   const errors = []
@@ -453,7 +469,6 @@ export default async function handler(req, res) {
     }
 
     addToConversationHistory(avatarType, sessionId, 'user', cleanPrompt)
-    addToConversationHistory(avatarType, sessionId, 'assistant', aiResponse)
 
     // Strip + validate the DIAGRAM:{...} line before any other parsing
     // touches the text, so no later regex has to reason about it and a
@@ -521,6 +536,11 @@ export default async function handler(req, res) {
     }
 
     part1 = normalizeAnswerText(part1, cleanPrompt)
+
+    // Store the cleaned answer (not the raw response) as this turn's memory -
+    // future turns should see what the student actually saw/heard, not raw
+    // section labels or diagram JSON that were stripped out above.
+    addToConversationHistory(avatarType, sessionId, 'assistant', part1)
 
     // If no related content was extracted, generate fallback suggestions
     if (relatedArticles.length === 0) {

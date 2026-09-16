@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   console.log('=== TEST API DEBUG ===')
   console.log('Method:', req.method)
   console.log('Environment:', process.env.VERCEL_ENV || 'local')
-  console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY)
+  console.log('GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY)
   console.log('========================')
 
   try {
@@ -20,8 +20,8 @@ export default async function handler(req, res) {
       success: true,
       message: 'Test API is working',
       environment: process.env.VERCEL_ENV || 'local',
-      hasApiKey: !!process.env.GEMINI_API_KEY,
-      allEnvVars: Object.keys(process.env).filter(key => key.includes('GEMINI')),
+      hasApiKey: !!process.env.GROQ_API_KEY,
+      allEnvVars: Object.keys(process.env).filter(key => key.includes('GROQ')),
       timestamp: new Date().toISOString(),
       method: req.method,
       headers: {
