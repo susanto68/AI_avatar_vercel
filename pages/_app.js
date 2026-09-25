@@ -4,6 +4,7 @@ import '../styles/space-background.css'
 import { useEffect } from 'react'
 import ModernCursor from '../components/ModernCursor/ModernCursor'
 import FloatingPet from '../components/FloatingPet/FloatingPet'
+import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 
 export default function App({ Component, pageProps }) {
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function App({ Component, pageProps }) {
       <ModernCursor />
       <Component {...pageProps} />
       <FloatingPet />
+      <WhatsAppButton />
     </>
   )
 }

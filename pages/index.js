@@ -8,7 +8,6 @@ import { AVATAR_CONFIG } from '../lib/avatars'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { speakText, initSynth, unlockAudio } from '../lib/speech'
 import { WELCOME_MESSAGES, UI_TEXT } from '../context/constant.js'
-import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 import SpaceBackground from '../components/SpaceBackground/SpaceBackground'
 
@@ -186,8 +185,6 @@ export default function Home() {
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative">
           <SpaceBackground />
           <div className="relative z-10">
-          {/* WhatsApp Button */}
-          <WhatsAppButton />
           <VisitorCounter />
 
           {/* Audio nudge — before first interaction */}
@@ -198,7 +195,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 pt-8 pb-28">
             {/* Header */}
             <div className="text-center mb-6">
               <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">

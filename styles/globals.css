@@ -247,6 +247,32 @@
     }
   }
 
+  /* WhatsApp button: brief periodic wiggle to catch attention - played once
+     every few seconds by WhatsAppButton, not looped continuously */
+  @keyframes whatsappWiggle {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    15% { transform: rotate(-14deg) scale(1.12); }
+    30% { transform: rotate(12deg) scale(1.12); }
+    45% { transform: rotate(-9deg) scale(1.08); }
+    60% { transform: rotate(7deg) scale(1.05); }
+    75% { transform: rotate(-3deg) scale(1.02); }
+  }
+  .whatsapp-wiggle {
+    animation: whatsappWiggle 0.9s ease-in-out;
+  }
+
+  @keyframes whatsappBubbleIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .whatsapp-bubble-in {
+    animation: whatsappBubbleIn 0.35s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .whatsapp-wiggle, .whatsapp-bubble-in { animation: none; }
+  }
+
   /* Floating AI companion */
   .floating-pet {
     position: fixed;

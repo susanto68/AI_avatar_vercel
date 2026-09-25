@@ -15,7 +15,6 @@ import VoiceFallback from '../components/VoiceControls/VoiceFallback'
 import { ERROR_MESSAGES, UI_TEXT, getAvatarGreeting } from '../context/constant.js'
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary'
 import TextDisplayFallback from '../components/ChatInterface/TextDisplayFallback'
-import WhatsAppButton from '../components/WhatsApp/WhatsAppButton'
 import VisitorCounter from '../components/VisitorCounter/VisitorCounter'
 import SpaceBackground from '../components/SpaceBackground/SpaceBackground'
 
@@ -390,7 +389,6 @@ export default function AvatarChat() {
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-x-hidden">
           <SpaceBackground />
           <div className="relative z-10">
-          <WhatsAppButton />
           <VisitorCounter />
 
           {/* Offline banner */}
@@ -408,7 +406,7 @@ export default function AvatarChat() {
             </div>
           )}
 
-          <div className="container mx-auto px-3 pb-20 flex flex-col min-h-screen">
+          <div className="container mx-auto px-3 pb-28 flex flex-col min-h-screen">
             
             {/* Unified Navigation Header Bar */}
             <div className="flex items-center justify-between gap-2 py-4 pl-[128px] sm:pl-[150px] border-b border-white/10 mb-4">
